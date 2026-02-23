@@ -3,11 +3,13 @@ import base64
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 
 from openai import AsyncOpenAI
 
 from config import settings
+from db import get_db
 from tools import TOOL_DEFINITIONS, execute_tool
 
 log = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ class RealtimeSession:
         self._event_queue: asyncio.Queue = asyncio.Queue()
         self._listener_task: asyncio.Task | None = None
         self._connected = False
+        self._turn_index = 0
 
     async def connect(self) -> None:
         """Open WebSocket and configure the session."""
@@ -81,18 +84,18 @@ class RealtimeSession:
 
         t_start = time.monotonic()
 
-        # Send audio as base64 PCM16 chunks (max ~15MB per append)
-        audio_b64 = base64.b64encode(audio_bytes).decode()
-        await self._conn.input_audio_buffer.append(audio=audio_b64)
-        await self._conn.input_audio_buffer.commit()
-        await self._conn.response.create()
-
-        # Drain any stale events from previous turns
+        # Drain any stale events from previous turns BEFORE sending new audio
         while not self._event_queue.empty():
             try:
                 self._event_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+        # Send audio as base64 PCM16 chunks (max ~15MB per append)
+        audio_b64 = base64.b64encode(audio_bytes).decode()
+        await self._conn.input_audio_buffer.append(audio=audio_b64)
+        await self._conn.input_audio_buffer.commit()
+        await self._conn.response.create()
 
         # Read events until response.done
         transcript_text = ""
@@ -141,6 +144,21 @@ class RealtimeSession:
 
         if response_text:
             yield _sse("response", {"text": response_text})
+
+        # Persist segment to DB
+        if transcript_text and response_text:
+            try:
+                db = await get_db()
+                await db.execute(
+                    "INSERT INTO segments (session_id, turn_index, user_text, ai_text, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (self.session_id, self._turn_index, transcript_text, response_text,
+                     datetime.now(timezone.utc).isoformat()),
+                )
+                await db.commit()
+                self._turn_index += 1
+            except Exception as e:
+                log.error("Failed to persist segment: %s", e)
 
         t_end = time.monotonic()
         if t_first_audio:

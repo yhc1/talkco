@@ -1,0 +1,260 @@
+"""Tests for review.py — generate_review, generate_correction, generate_session_review."""
+
+import json
+import sys
+import os
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+# Ensure backend root is on sys.path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+# Patch settings before importing any app modules
+os.environ.setdefault("OPENAI_API_KEY", "test-key")
+
+from db import init_db, close_db, get_db
+import review
+
+
+@pytest.fixture(autouse=True)
+async def setup_db(tmp_path):
+    """Create an in-memory-like temp DB for each test."""
+    import config
+    config.settings.DB_PATH = str(tmp_path / "test.db")
+
+    # Re-init with fresh DB
+    import db as db_mod
+    db_mod._db = None
+    await init_db()
+    yield
+    await close_db()
+
+
+async def _insert_session_and_segments(session_id="s1", user_id="u1", turns=None):
+    """Helper to insert a session with segments."""
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT INTO sessions (id, user_id, started_at, status) VALUES (?, ?, ?, ?)",
+        (session_id, user_id, now, "reviewing"),
+    )
+    if turns is None:
+        turns = [
+            ("How's your day?", "It's going well! How about you?"),
+            ("The weather, I think good", "That's great to hear! The weather has been lovely."),
+        ]
+    for i, (user_text, ai_text) in enumerate(turns):
+        await db.execute(
+            "INSERT INTO segments (session_id, turn_index, user_text, ai_text, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session_id, i, user_text, ai_text, now),
+        )
+    await db.commit()
+
+
+# --- generate_review tests ---
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_writes_marks(mock_chat):
+    """AI marks are written to DB from well-formed LLM response."""
+    mock_chat.return_value = {
+        "marks": [
+            {
+                "turn_index": 1,
+                "issues": [
+                    {
+                        "issue_type": "grammar",
+                        "original": "The weather, I think good",
+                        "suggestion": "I think the weather is good",
+                        "explanation": "需要加 is",
+                    },
+                    {
+                        "issue_type": "naturalness",
+                        "original": "I think the weather is good",
+                        "suggestion": "The weather's pretty nice today, I think",
+                        "explanation": "母語者更常把 I think 放在句尾",
+                    },
+                ],
+            }
+        ]
+    }
+
+    await _insert_session_and_segments()
+    await review.generate_review("s1")
+
+    db = await get_db()
+    marks = await db.execute_fetchall("SELECT * FROM ai_marks")
+    assert len(marks) == 2
+    assert marks[0]["issue_type"] == "grammar"
+    assert marks[1]["issue_type"] == "naturalness"
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_skips_malformed_issues(mock_chat):
+    """Issues missing required fields are skipped, not crash."""
+    mock_chat.return_value = {
+        "marks": [
+            {
+                "turn_index": 1,
+                "issues": [
+                    {
+                        # missing issue_type
+                        "original": "something",
+                        "suggestion": "something else",
+                        "explanation": "reason",
+                    },
+                    {
+                        "issue_type": "grammar",
+                        "original": "The weather, I think good",
+                        "suggestion": "I think the weather is good",
+                        "explanation": "需要加 is",
+                    },
+                ],
+            }
+        ]
+    }
+
+    await _insert_session_and_segments()
+    await review.generate_review("s1")
+
+    db = await get_db()
+    marks = await db.execute_fetchall("SELECT * FROM ai_marks")
+    assert len(marks) == 1  # only the valid one
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_no_segments(mock_chat):
+    """No segments → no crash, no LLM call."""
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT INTO sessions (id, user_id, started_at, status) VALUES (?, ?, ?, ?)",
+        ("empty", "u1", now, "reviewing"),
+    )
+    await db.commit()
+
+    await review.generate_review("empty")
+    mock_chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_unknown_turn_index(mock_chat):
+    """LLM returns a turn_index that doesn't exist → skipped gracefully."""
+    mock_chat.return_value = {
+        "marks": [
+            {
+                "turn_index": 999,
+                "issues": [
+                    {
+                        "issue_type": "grammar",
+                        "original": "x",
+                        "suggestion": "y",
+                        "explanation": "z",
+                    }
+                ],
+            }
+        ]
+    }
+
+    await _insert_session_and_segments()
+    await review.generate_review("s1")
+
+    db = await get_db()
+    marks = await db.execute_fetchall("SELECT * FROM ai_marks")
+    assert len(marks) == 0
+
+
+# --- generate_correction tests ---
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_correction_success(mock_chat):
+    """Correction is returned and stored in DB."""
+    mock_chat.return_value = {
+        "correction": "I think the weather is really nice today",
+        "explanation": "可以用 nice 代替 good 來形容天氣",
+    }
+
+    await _insert_session_and_segments()
+
+    # Get the segment_id for turn 1
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT id FROM segments WHERE session_id = 's1' AND turn_index = 1"
+    )
+    seg_id = rows[0]["id"]
+
+    result = await review.generate_correction("s1", seg_id, "這句我想說天氣很好但不知道怎麼講")
+
+    assert result["correction"] == "I think the weather is really nice today"
+    assert result["explanation"] == "可以用 nice 代替 good 來形容天氣"
+    assert result["segment_id"] == seg_id
+
+    # Check DB
+    corrections = await db.execute_fetchall("SELECT * FROM corrections")
+    assert len(corrections) == 1
+    assert corrections[0]["user_message"] == "這句我想說天氣很好但不知道怎麼講"
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_correction_invalid_segment(mock_chat):
+    """Non-existent segment raises ValueError."""
+    await _insert_session_and_segments()
+
+    with pytest.raises(ValueError, match="Segment 9999 not found"):
+        await review.generate_correction("s1", 9999, "help")
+
+    mock_chat.assert_not_called()
+
+
+# --- generate_session_review tests ---
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_session_review_success(mock_chat):
+    """Final review is returned and stored in session_summaries."""
+    mock_chat.return_value = {
+        "strengths": ["能主動開啟話題", "回應速度快"],
+        "weaknesses": {
+            "grammar": "缺少 be 動詞，例如 'I think good' 應為 'I think it is good'",
+            "naturalness": "用詞偏基礎，例如用 good 而非 nice/great",
+            "vocabulary": None,
+            "sentence_structure": None,
+        },
+        "level_assessment": "elementary — 基本句型尚未掌握",
+        "overall": "學習者能參與基本對話，但語法和自然度需要加強。",
+    }
+
+    await _insert_session_and_segments()
+
+    # Pre-insert some AI marks
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT id FROM segments WHERE session_id = 's1' AND turn_index = 1"
+    )
+    seg_id = rows[0]["id"]
+    await db.execute(
+        "INSERT INTO ai_marks (segment_id, issue_type, original, suggestion, explanation) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (seg_id, "grammar", "I think good", "I think it is good", "缺少 be 動詞"),
+    )
+    await db.commit()
+
+    result = await review.generate_session_review("s1")
+
+    assert len(result["strengths"]) == 2
+    assert result["weaknesses"]["grammar"] is not None
+    assert result["weaknesses"]["vocabulary"] is None
+    assert "elementary" in result["level_assessment"]
+
+    # Check DB
+    summary = await db.execute_fetchall("SELECT * FROM session_summaries WHERE session_id = 's1'")
+    assert len(summary) == 1
+    assert json.loads(summary[0]["weaknesses"])["grammar"] is not None

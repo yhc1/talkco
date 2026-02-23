@@ -1,4 +1,7 @@
+import json
 import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -6,6 +9,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import sessions
+from db import init_db, close_db, get_db
+from profile import get_or_create_profile, update_profile_after_session
+from review import generate_correction, generate_session_review
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,12 +19,31 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="TalkCo Backend")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    log.info("Database initialized")
+    yield
+    await close_db()
+    log.info("Database closed")
+
+
+app = FastAPI(title="TalkCo Backend", lifespan=lifespan)
+
+
+# -- Request models --
 
 class CreateSessionRequest(BaseModel):
     user_id: str
 
+
+class CorrectionRequest(BaseModel):
+    segment_id: int
+    user_message: str
+
+
+# -- Session endpoints --
 
 @app.post("/sessions")
 async def create_session(req: CreateSessionRequest):
@@ -31,7 +56,7 @@ async def delete_session(session_id: str):
     deleted = await sessions.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"session_id": session_id, "status": "completed"}
+    return {"session_id": session_id, "status": "reviewing"}
 
 
 @app.post("/sessions/{session_id}/chat")
@@ -57,6 +82,172 @@ async def chat(session_id: str, audio: UploadFile = File(...)):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# -- Review endpoints --
+
+@app.get("/sessions/{session_id}/review")
+async def get_review(session_id: str):
+    db = await get_db()
+
+    # Check session exists
+    session_rows = await db.execute_fetchall(
+        "SELECT id, status FROM sessions WHERE id = ?", (session_id,)
+    )
+    if not session_rows:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    status = session_rows[0]["status"]
+
+    # Fetch segments
+    segments = await db.execute_fetchall(
+        "SELECT id, turn_index, user_text, ai_text FROM segments "
+        "WHERE session_id = ? ORDER BY turn_index",
+        (session_id,),
+    )
+
+    # Fetch AI marks for these segments
+    seg_ids = [s["id"] for s in segments]
+    marks_by_segment: dict[int, list] = {}
+    if seg_ids:
+        placeholders = ",".join("?" * len(seg_ids))
+        marks = await db.execute_fetchall(
+            f"SELECT id, segment_id, issue_type, original, suggestion, explanation "
+            f"FROM ai_marks WHERE segment_id IN ({placeholders})",
+            seg_ids,
+        )
+        for m in marks:
+            marks_by_segment.setdefault(m["segment_id"], []).append({
+                "id": m["id"],
+                "issue_type": m["issue_type"],
+                "original": m["original"],
+                "suggestion": m["suggestion"],
+                "explanation": m["explanation"],
+            })
+
+    # Fetch corrections for this session
+    corrections_by_segment: dict[int, list] = {}
+    corrections = await db.execute_fetchall(
+        "SELECT id, segment_id, user_message, correction, explanation, created_at "
+        "FROM corrections WHERE session_id = ?",
+        (session_id,),
+    )
+    for c in corrections:
+        corrections_by_segment.setdefault(c["segment_id"], []).append({
+            "id": c["id"],
+            "user_message": c["user_message"],
+            "correction": c["correction"],
+            "explanation": c["explanation"],
+            "created_at": c["created_at"],
+        })
+
+    # Build response
+    segments_out = []
+    for s in segments:
+        segments_out.append({
+            "id": s["id"],
+            "turn_index": s["turn_index"],
+            "user_text": s["user_text"],
+            "ai_text": s["ai_text"],
+            "ai_marks": marks_by_segment.get(s["id"], []),
+            "corrections": corrections_by_segment.get(s["id"], []),
+        })
+
+    # Fetch summary
+    summary = None
+    summary_rows = await db.execute_fetchall(
+        "SELECT strengths, weaknesses, level_assessment, overall "
+        "FROM session_summaries WHERE session_id = ?",
+        (session_id,),
+    )
+    if summary_rows:
+        row = summary_rows[0]
+        summary = {
+            "strengths": json.loads(row["strengths"]),
+            "weaknesses": json.loads(row["weaknesses"]),
+            "level_assessment": row["level_assessment"],
+            "overall": row["overall"],
+        }
+
+    return {
+        "session_id": session_id,
+        "status": status,
+        "segments": segments_out,
+        "summary": summary,
+    }
+
+
+# -- Correction endpoint --
+
+@app.post("/sessions/{session_id}/corrections")
+async def create_correction(session_id: str, req: CorrectionRequest):
+    db = await get_db()
+
+    # Verify session exists and is in reviewing state
+    session_rows = await db.execute_fetchall(
+        "SELECT id, status FROM sessions WHERE id = ?", (session_id,)
+    )
+    if not session_rows:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if session_rows[0]["status"] not in ("reviewing", "completed"):
+        raise HTTPException(status_code=400, detail="Session is not in review state")
+
+    # Verify segment belongs to session
+    seg_rows = await db.execute_fetchall(
+        "SELECT id FROM segments WHERE id = ? AND session_id = ?",
+        (req.segment_id, session_id),
+    )
+    if not seg_rows:
+        raise HTTPException(status_code=404, detail="Segment not found in this session")
+
+    result = await generate_correction(session_id, req.segment_id, req.user_message)
+    return result
+
+
+# -- End session (finalize review) --
+
+@app.post("/sessions/{session_id}/end")
+async def end_session(session_id: str):
+    db = await get_db()
+
+    session_rows = await db.execute_fetchall(
+        "SELECT id, user_id, status FROM sessions WHERE id = ?", (session_id,)
+    )
+    if not session_rows:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = session_rows[0]
+    if session["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Session already completed")
+
+    # Generate final session review
+    review = await generate_session_review(session_id)
+
+    # Update status to completed
+    await db.execute(
+        "UPDATE sessions SET status = ? WHERE id = ?",
+        ("completed", session_id),
+    )
+    await db.commit()
+
+    # Update user learning profile
+    profile = await update_profile_after_session(session["user_id"], session_id)
+
+    return {
+        "session_id": session_id,
+        "status": "completed",
+        "review": review,
+        "profile": profile,
+    }
+
+
+# -- User profile endpoint --
+
+@app.get("/users/{user_id}/profile")
+async def get_user_profile(user_id: str):
+    profile = await get_or_create_profile(user_id)
+    return profile
 
 
 if __name__ == "__main__":
