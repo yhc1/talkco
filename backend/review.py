@@ -10,27 +10,24 @@ log = logging.getLogger(__name__)
 REVIEW_SYSTEM_PROMPT = """\
 You are an English language learning assistant for Mandarin Chinese speakers.
 
-Analyze the conversation transcript. For each user turn, identify issues in 4 categories:
+Analyze the conversation transcript. For each user utterance that has issues, provide ONE record covering all problems found in that utterance.
+
+Issue categories:
 - "grammar": grammatical errors (tense, agreement, articles, prepositions)
 - "naturalness": grammatically correct but unnatural phrasing
 - "vocabulary": imprecise or overly basic word choices
 - "sentence_structure": Chinese-influenced word order or sentence patterns
 
-For each issue, provide:
-- original: the problematic phrase
-- suggestion: how a native speaker would say it
-- explanation: brief explanation in Traditional Chinese (繁體中文)
+For each user utterance with issues, provide:
+- issue_types: array of applicable categories (e.g. ["grammar", "naturalness"])
+- original: what the user said
+- suggestion: how a native speaker would naturally say it (addressing all issues at once)
+- explanation: one concise explanation in Traditional Chinese (繁體中文) covering all issues together
 
-IMPORTANT: A single phrase can have multiple layers of issues. For example,
-"The weather, I think good" has a grammar issue (missing 'is') AND even after
-fixing grammar, "I think the weather is good" has a naturalness issue (native
-speakers would say "The weather's pretty nice today, I think").
-Report each layer as a separate mark.
+Respond as JSON: { "marks": [ { "turn_index": 0, "issue_types": [...], "original": "...", "suggestion": "...", "explanation": "..." } ] }
 
-Respond as JSON: { "marks": [ { "turn_index": 0, "issues": [...] } ] }
-
-If a turn has no issues, omit it from the marks array. \
-Keep explanations concise and in Traditional Chinese (繁體中文). \
+If a user utterance has no issues, omit it. \
+Keep explanations clear and concise in Traditional Chinese (繁體中文). \
 Suggestions should be natural, level-appropriate English.\
 """
 
@@ -101,29 +98,31 @@ async def generate_review(session_id: str) -> None:
     result = await chat_json(REVIEW_SYSTEM_PROMPT, transcript)
 
     marks = result.get("marks", [])
+    log.info("Review result for session %s: %s", session_id, json.dumps(marks, ensure_ascii=False))
     seg_map = {row["turn_index"]: row["id"] for row in rows}
 
+    inserted = 0
     for mark in marks:
         turn_idx = mark.get("turn_index")
         segment_id = seg_map.get(turn_idx)
         if segment_id is None:
             continue
-        for issue in mark.get("issues", []):
-            issue_type = issue.get("issue_type")
-            original = issue.get("original")
-            suggestion = issue.get("suggestion")
-            explanation = issue.get("explanation")
-            if not all([issue_type, original, suggestion, explanation]):
-                log.warning("Skipping malformed issue in turn %s: %s", turn_idx, issue)
-                continue
-            await db.execute(
-                "INSERT INTO ai_marks (segment_id, issue_type, original, suggestion, explanation) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (segment_id, issue_type, original, suggestion, explanation),
-            )
+        issue_types = mark.get("issue_types", [])
+        original = mark.get("original")
+        suggestion = mark.get("suggestion")
+        explanation = mark.get("explanation")
+        if not issue_types or not all([original, suggestion, explanation]):
+            log.warning("Skipping malformed mark for turn %s: %s", turn_idx, mark)
+            continue
+        await db.execute(
+            "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (segment_id, json.dumps(issue_types, ensure_ascii=False), original, suggestion, explanation),
+        )
+        inserted += 1
 
     await db.commit()
-    log.info("Review written for session %s: %d marks", session_id, sum(len(m.get("issues", [])) for m in marks))
+    log.info("Review written for session %s: %d marks", session_id, inserted)
 
 
 async def generate_correction(session_id: str, segment_id: int, user_message: str) -> dict:
@@ -185,7 +184,7 @@ async def generate_session_review(session_id: str) -> dict:
     if seg_ids:
         placeholders = ",".join("?" * len(seg_ids))
         marks = await db.execute_fetchall(
-            f"SELECT segment_id, issue_type, original, suggestion, explanation "
+            f"SELECT segment_id, issue_types, original, suggestion, explanation "
             f"FROM ai_marks WHERE segment_id IN ({placeholders})",
             seg_ids,
         )
@@ -205,7 +204,9 @@ async def generate_session_review(session_id: str) -> dict:
     if marks:
         parts.append("\nAI-identified issues:")
         for m in marks:
-            parts.append(f"  [{m['issue_type']}] \"{m['original']}\" → \"{m['suggestion']}\" ({m['explanation']})")
+            types = json.loads(m["issue_types"]) if isinstance(m["issue_types"], str) else m["issue_types"]
+            types_str = ", ".join(types)
+            parts.append(f"  [{types_str}] \"{m['original']}\" → \"{m['suggestion']}\" ({m['explanation']})")
 
     if corrections:
         parts.append("\nLearner's self-corrections:")

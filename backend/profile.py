@@ -99,7 +99,7 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
     if seg_ids:
         placeholders = ",".join("?" * len(seg_ids))
         marks = await db.execute_fetchall(
-            f"SELECT segment_id, issue_type, original, suggestion FROM ai_marks "
+            f"SELECT segment_id, issue_types, original, suggestion FROM ai_marks "
             f"WHERE segment_id IN ({placeholders})",
             seg_ids,
         )
@@ -127,7 +127,9 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
     if marks:
         user_msg_parts.append("\nAI-identified issues:")
         for m in marks:
-            user_msg_parts.append(f"  [{m['issue_type']}] \"{m['original']}\" → \"{m['suggestion']}\"")
+            types = json.loads(m["issue_types"]) if isinstance(m["issue_types"], str) else m["issue_types"]
+            types_str = ", ".join(types)
+            user_msg_parts.append(f"  [{types_str}] \"{m['original']}\" → \"{m['suggestion']}\"")
 
     if corrections:
         user_msg_parts.append("\nLearner corrections:")

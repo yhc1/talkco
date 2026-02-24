@@ -112,14 +112,14 @@ async def get_review(session_id: str):
     if seg_ids:
         placeholders = ",".join("?" * len(seg_ids))
         marks = await db.execute_fetchall(
-            f"SELECT id, segment_id, issue_type, original, suggestion, explanation "
+            f"SELECT id, segment_id, issue_types, original, suggestion, explanation "
             f"FROM ai_marks WHERE segment_id IN ({placeholders})",
             seg_ids,
         )
         for m in marks:
             marks_by_segment.setdefault(m["segment_id"], []).append({
                 "id": m["id"],
-                "issue_type": m["issue_type"],
+                "issue_types": json.loads(m["issue_types"]),
                 "original": m["original"],
                 "suggestion": m["suggestion"],
                 "explanation": m["explanation"],

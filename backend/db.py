@@ -24,11 +24,11 @@ CREATE TABLE IF NOT EXISTS segments (
 );
 
 CREATE TABLE IF NOT EXISTS ai_marks (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    segment_id INTEGER NOT NULL REFERENCES segments(id),
-    issue_type TEXT NOT NULL,   -- grammar | naturalness | vocabulary | sentence_structure
-    original   TEXT NOT NULL,
-    suggestion TEXT NOT NULL,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    segment_id  INTEGER NOT NULL REFERENCES segments(id),
+    issue_types TEXT NOT NULL,   -- JSON array: ["grammar", "naturalness", ...]
+    original    TEXT NOT NULL,
+    suggestion  TEXT NOT NULL,
     explanation TEXT NOT NULL
 );
 

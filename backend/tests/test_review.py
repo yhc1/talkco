@@ -64,20 +64,10 @@ async def test_generate_review_writes_marks(mock_chat):
         "marks": [
             {
                 "turn_index": 1,
-                "issues": [
-                    {
-                        "issue_type": "grammar",
-                        "original": "The weather, I think good",
-                        "suggestion": "I think the weather is good",
-                        "explanation": "需要加 is",
-                    },
-                    {
-                        "issue_type": "naturalness",
-                        "original": "I think the weather is good",
-                        "suggestion": "The weather's pretty nice today, I think",
-                        "explanation": "母語者更常把 I think 放在句尾",
-                    },
-                ],
+                "issue_types": ["grammar", "naturalness"],
+                "original": "The weather, I think good",
+                "suggestion": "The weather's pretty nice today, I think",
+                "explanation": "需要加 be 動詞；母語者更常把 I think 放在句尾",
             }
         ]
     }
@@ -87,34 +77,32 @@ async def test_generate_review_writes_marks(mock_chat):
 
     db = await get_db()
     marks = await db.execute_fetchall("SELECT * FROM ai_marks")
-    assert len(marks) == 2
-    assert marks[0]["issue_type"] == "grammar"
-    assert marks[1]["issue_type"] == "naturalness"
+    assert len(marks) == 1
+    import json
+    assert json.loads(marks[0]["issue_types"]) == ["grammar", "naturalness"]
+    assert marks[0]["original"] == "The weather, I think good"
 
 
 @pytest.mark.asyncio
 @patch("review.chat_json", new_callable=AsyncMock)
-async def test_generate_review_skips_malformed_issues(mock_chat):
-    """Issues missing required fields are skipped, not crash."""
+async def test_generate_review_skips_malformed_marks(mock_chat):
+    """Marks missing required fields are skipped, not crash."""
     mock_chat.return_value = {
         "marks": [
             {
                 "turn_index": 1,
-                "issues": [
-                    {
-                        # missing issue_type
-                        "original": "something",
-                        "suggestion": "something else",
-                        "explanation": "reason",
-                    },
-                    {
-                        "issue_type": "grammar",
-                        "original": "The weather, I think good",
-                        "suggestion": "I think the weather is good",
-                        "explanation": "需要加 is",
-                    },
-                ],
-            }
+                # missing issue_types
+                "original": "something",
+                "suggestion": "something else",
+                "explanation": "reason",
+            },
+            {
+                "turn_index": 1,
+                "issue_types": ["grammar"],
+                "original": "The weather, I think good",
+                "suggestion": "I think the weather is good",
+                "explanation": "需要加 is",
+            },
         ]
     }
 
@@ -150,14 +138,10 @@ async def test_generate_review_unknown_turn_index(mock_chat):
         "marks": [
             {
                 "turn_index": 999,
-                "issues": [
-                    {
-                        "issue_type": "grammar",
-                        "original": "x",
-                        "suggestion": "y",
-                        "explanation": "z",
-                    }
-                ],
+                "issue_types": ["grammar"],
+                "original": "x",
+                "suggestion": "y",
+                "explanation": "z",
             }
         ]
     }
@@ -241,9 +225,9 @@ async def test_generate_session_review_success(mock_chat):
     )
     seg_id = rows[0]["id"]
     await db.execute(
-        "INSERT INTO ai_marks (segment_id, issue_type, original, suggestion, explanation) "
+        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) "
         "VALUES (?, ?, ?, ?, ?)",
-        (seg_id, "grammar", "I think good", "I think it is good", "缺少 be 動詞"),
+        (seg_id, '["grammar"]', "I think good", "I think it is good", "缺少 be 動詞"),
     )
     await db.commit()
 

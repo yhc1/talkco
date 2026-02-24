@@ -61,7 +61,7 @@ Python Backend (FastAPI)
 ### Review & Profile
 
 - `review.py` — Three functions:
-  - `generate_review(session_id)` — AI Marks (4 dimensions), runs in background after conversation ends. Skips malformed issues with warning log.
+  - `generate_review(session_id)` — AI Marks (one per segment, combining all issue types), runs in background after conversation ends. Skips malformed marks with warning log.
   - `generate_correction(session_id, segment_id, user_message) → dict` — Synchronous correction for user questions during review. Stores result in `corrections` table.
   - `generate_session_review(session_id) → dict` — Final structured review when user presses End. Stores result in `session_summaries` table.
 - `profile.py` — User Learning Profile CRUD and post-session update
