@@ -12,6 +12,7 @@ import sessions
 from db import init_db, close_db, get_db
 from profile import get_or_create_profile, update_profile_after_session
 from review import generate_correction, generate_session_review
+from topics import get_topics, get_topic_by_id
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,7 @@ app = FastAPI(title="TalkCo Backend", lifespan=lifespan)
 
 class CreateSessionRequest(BaseModel):
     user_id: str
+    topic_id: str
 
 
 class CorrectionRequest(BaseModel):
@@ -45,9 +47,17 @@ class CorrectionRequest(BaseModel):
 
 # -- Session endpoints --
 
+@app.get("/topics")
+async def list_topics():
+    return get_topics()
+
+
 @app.post("/sessions")
 async def create_session(req: CreateSessionRequest):
-    result = await sessions.create_session(req.user_id)
+    topic = get_topic_by_id(req.topic_id)
+    if topic is None:
+        raise HTTPException(status_code=400, detail=f"Unknown topic_id: {req.topic_id}")
+    result = await sessions.create_session(req.user_id, topic=topic)
     return result
 
 
@@ -57,6 +67,27 @@ async def delete_session(session_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"session_id": session_id, "status": "reviewing"}
+
+
+@app.post("/sessions/{session_id}/start")
+async def start_session(session_id: str):
+    session = sessions.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not session._connected:
+        raise HTTPException(
+            status_code=503, detail="Session still connecting, try again shortly"
+        )
+
+    return StreamingResponse(
+        session.stream_greeting(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/sessions/{session_id}/chat")

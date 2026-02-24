@@ -14,7 +14,7 @@ from tools import TOOL_DEFINITIONS, execute_tool
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """\
+BASE_SYSTEM_PROMPT = """\
 You are a friendly, patient English conversation partner for a Mandarin Chinese \
 native speaker who is practicing English. Adapt to the user's level — if they \
 use simple sentences, keep yours simple too; if they're advanced, match that. \
@@ -24,11 +24,26 @@ If the user asks about news or current events, use the search_news tool.\
 """
 
 
+def _build_system_prompt(topic: str, learner_summary: str) -> str:
+    """Build a dynamic system prompt with topic and learner context."""
+    parts = [BASE_SYSTEM_PROMPT]
+    parts.append(f"\nToday's conversation topic: {topic}")
+    if learner_summary:
+        parts.append(f"\nLearner context: {learner_summary}")
+    parts.append(
+        "\nStart the conversation by greeting the learner and naturally introducing the topic. "
+        "Keep the greeting warm but brief (1-2 sentences)."
+    )
+    return "\n".join(parts)
+
+
 class RealtimeSession:
     """Manages one persistent WebSocket connection to OpenAI Realtime API."""
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, topic: str = "free conversation", learner_summary: str = ""):
         self.session_id = session_id
+        self._topic = topic
+        self._learner_summary = learner_summary
         self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self._conn = None
         self._event_queue: asyncio.Queue = asyncio.Queue()
@@ -42,10 +57,12 @@ class RealtimeSession:
             model=settings.S2S_MODEL
         ).enter()
 
+        system_prompt = _build_system_prompt(self._topic, self._learner_summary)
+
         await self._conn.session.update(
             session={
                 "modalities": ["text", "audio"],
-                "instructions": SYSTEM_PROMPT,
+                "instructions": system_prompt,
                 "voice": settings.S2S_VOICE,
                 "input_audio_format": "pcm16",
                 "output_audio_format": "pcm16",
@@ -61,6 +78,9 @@ class RealtimeSession:
 
         self._connected = True
         self._listener_task = asyncio.create_task(self._listen_loop())
+
+        # Trigger AI greeting — events will flow into _event_queue
+        await self._conn.response.create()
 
     async def _listen_loop(self) -> None:
         """Background task: read events from WebSocket and push to queue."""
@@ -159,6 +179,63 @@ class RealtimeSession:
                 self._turn_index += 1
             except Exception as e:
                 log.error("Failed to persist segment: %s", e)
+
+        t_end = time.monotonic()
+        if t_first_audio:
+            yield _sse(
+                "timing",
+                {"step": "first_audio", "duration_s": round(t_first_audio - t_start, 3)},
+            )
+        yield _sse(
+            "timing",
+            {"step": "total", "duration_s": round(t_end - t_start, 3)},
+        )
+        yield _sse("done", {})
+
+    async def stream_greeting(self) -> AsyncGenerator[str, None]:
+        """
+        Stream the AI's greeting (triggered during connect).
+        Does NOT persist as a segment — greeting has no user utterance.
+        """
+        if not self._connected:
+            raise RuntimeError("Session not connected")
+
+        t_start = time.monotonic()
+        response_text = ""
+        t_first_audio = None
+
+        while True:
+            try:
+                event = await asyncio.wait_for(
+                    self._event_queue.get(), timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                log.warning("Timeout waiting for greeting event")
+                break
+
+            if event is None:
+                break
+
+            event_type = event.type
+            log.debug("Greeting event: %s", event_type)
+
+            if event_type == "response.audio_transcript.delta":
+                response_text += event.delta or ""
+
+            elif event_type == "response.audio.delta":
+                if t_first_audio is None:
+                    t_first_audio = time.monotonic()
+                yield _sse("audio", {"audio": event.delta})
+
+            elif event_type == "response.done":
+                break
+
+            elif event_type == "error":
+                log.error("Realtime API error during greeting: %s", event)
+                break
+
+        if response_text:
+            yield _sse("response", {"text": response_text})
 
         t_end = time.monotonic()
         if t_first_audio:

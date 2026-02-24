@@ -40,6 +40,8 @@ Python Backend (FastAPI)
 - `providers/openai_s2s.py` — OpenAI Realtime S2S via `openai` SDK
   - Handles transcript, response text, and audio output in one hop
   - Uses `gpt-4o-mini-transcribe` for input audio transcription
+  - Dynamic system prompt built from topic + learner profile context
+  - Triggers AI greeting on connect; `stream_greeting()` streams it without persisting as segment
   - Persists segments to SQLite after each turn (only when both transcript and response are non-empty)
   - Drains stale events from the queue before sending new audio to avoid race conditions
 - `providers/openai_chat.py` — OpenAI Chat Completions wrapper
@@ -80,11 +82,24 @@ Python Backend (FastAPI)
 
 ### Phase 1 — Conversation
 
+**GET /topics**
+- Returns the list of predefined conversation topics
+- Response: `[{ id, label_en, label_zh, prompt_hint }, ...]`
+
 **POST /sessions**
 - Creates a new Conversation session
+- Validates `topic_id` against predefined topics (returns 400 if unknown)
+- Fetches user's Learning Profile to build learner context for the AI
 - Persists to DB and initializes WebSocket connection in background
-- Request: `{ user_id: string }`
+- After WebSocket connects, AI greeting is triggered automatically
+- Request: `{ user_id: string, topic_id: string }`
 - Response: `{ session_id: string, created_at: timestamp }`
+
+**POST /sessions/{id}/start**
+- Streams the AI's greeting message (triggered during session creation)
+- Returns 503 if session is still connecting
+- Greeting is NOT persisted as a segment (no user utterance to review)
+- Response: `text/event-stream` (SSE) with events: response, audio, timing, done
 
 **DELETE /sessions/{id}**
 - Ends the real-time conversation
@@ -127,21 +142,34 @@ Python Backend (FastAPI)
 
 ---
 
-## Key Flow: End of Conversation
+## Key Flow: Conversation Lifecycle
 
 ```
-1. DELETE /sessions/{id}
+1. POST /sessions { user_id, topic }
+   → Creates session, connects WebSocket in background
+   → After connect: AI greeting triggered automatically
+
+2. POST /sessions/{id}/start
+   → Streams AI greeting (text + audio via SSE)
+   → Client plays AI's opening message
+   → Greeting is NOT stored as a segment
+
+3. POST /sessions/{id}/chat  (repeatable)
+   → Normal user audio → AI response cycle
+   → turn_index starts at 0 (greeting excluded)
+
+4. DELETE /sessions/{id}
    → Close WebSocket, update DB status to "reviewing"
    → Background: generate_review() → AI Marks (4 dimensions)
 
-2. GET /sessions/{id}/review  (frontend polls)
+5. GET /sessions/{id}/review  (frontend polls)
    → Returns segments + AI marks + corrections
    → summary is null until POST /sessions/{id}/end is called
 
-3. POST /sessions/{id}/corrections  (user asks about a segment, repeatable)
+6. POST /sessions/{id}/corrections  (user asks about a segment, repeatable)
    → Synchronous: generate_correction() → immediate response
 
-4. POST /sessions/{id}/end  (user presses End)
+7. POST /sessions/{id}/end  (user presses End)
    → generate_session_review() → structured review written to session_summaries
    → update_profile_after_session() → updated profile
 ```

@@ -19,11 +19,13 @@ The two problems it solves:
 ## Core User Flow
 
 ```
-[ Start Chatting ]
+[ Pick a Topic ]
+  - Frontend shows predefined topic cards
+  - User selects one
        ↓
 [ Conversation ]
+  - AI greets the user and introduces the chosen topic
   - User chats with AI in English
-  - Topic can be system-suggested or user-directed
        ↓
 [ Review Interface ]
   - AI proactively marks Segments it identified as unnatural or incorrect
@@ -71,11 +73,16 @@ These terms are used consistently across frontend and backend.
 
 ## Topic Selection
 
-When starting a Conversation, the user has two options:
-- **System-suggested**: The system selects a topic based on the User Learning Profile
-- **User-directed**: The user specifies a direction (e.g., workplace, travel, daily life)
+Before starting a Conversation, the frontend displays a set of predefined topic cards. The user picks one, and the selected `topic_id` is sent with the session creation request. The backend looks up the topic (label + prompt hint) and uses it to shape the AI's system prompt and opening greeting.
 
-Topic selection is a lightweight entry point, not a structured hierarchy. How topics are generated belongs in /backend/CLAUDE.md.
+Current predefined topics: Daily Life, Travel, Workplace, Food & Dining, Entertainment, Current Events.
+
+Each topic has:
+- `id` — stable identifier sent by the frontend (e.g. `"travel"`)
+- `label_en` / `label_zh` — display names for the frontend
+- `prompt_hint` — short description fed into the AI system prompt to guide the conversation
+
+Topic selection is a lightweight entry point, not a structured hierarchy. The topic list is hardcoded in `backend/topics.py` for the first version.
 
 ---
 

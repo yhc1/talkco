@@ -91,8 +91,30 @@ def play_audio_chunks(audio_chunks: list[bytes]) -> None:
     sd.wait()
 
 
-def create_session() -> str:
-    resp = httpx.post(f"{BASE_URL}/sessions", json={"user_id": "test-user"})
+def pick_topic() -> str:
+    """Fetch topics from backend and let the user choose one."""
+    resp = httpx.get(f"{BASE_URL}/topics")
+    resp.raise_for_status()
+    topics = resp.json()
+
+    print("Pick a topic:")
+    for i, t in enumerate(topics, 1):
+        print(f"  [{i}] {t['label_en']} ({t['label_zh']})")
+
+    while True:
+        choice = input("> ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(topics):
+            selected = topics[int(choice) - 1]
+            print(f"Selected: {selected['label_en']}")
+            return selected["id"]
+        print(f"Enter a number 1-{len(topics)}")
+
+
+def create_session(topic_id: str) -> str:
+    resp = httpx.post(
+        f"{BASE_URL}/sessions",
+        json={"user_id": "test-user", "topic_id": topic_id},
+    )
     resp.raise_for_status()
     data = resp.json()
     print(f"Session created: {data['session_id']}")
@@ -137,6 +159,39 @@ def send_chat(session_id: str, pcm_bytes: bytes) -> None:
     play_audio_chunks(audio_chunks)
 
 
+def stream_greeting(session_id: str) -> None:
+    """Call /start and play the AI's greeting."""
+    import json
+
+    audio_chunks = []
+
+    with httpx.stream(
+        "POST",
+        f"{BASE_URL}/sessions/{session_id}/start",
+        timeout=60.0,
+    ) as resp:
+        resp.raise_for_status()
+        current_event = None
+
+        for line in resp.iter_lines():
+            if line.startswith("event: "):
+                current_event = line[7:]
+            elif line.startswith("data: ") and current_event:
+                data = json.loads(line[6:])
+
+                if current_event == "response":
+                    print(f"\n   AI: {data['text']}")
+                elif current_event == "audio":
+                    chunk = base64.b64decode(data["audio"])
+                    audio_chunks.append(chunk)
+                elif current_event == "timing":
+                    print(f"   ⏱ {data['step']}: {data['duration_s']}s")
+
+                current_event = None
+
+    play_audio_chunks(audio_chunks)
+
+
 def delete_session(session_id: str) -> None:
     resp = httpx.delete(f"{BASE_URL}/sessions/{session_id}")
     resp.raise_for_status()
@@ -147,10 +202,14 @@ def main():
     print("=== TalkCo Test Client ===")
     print("This will record audio from your microphone and send it to the backend.\n")
 
-    session_id = create_session()
+    topic_id = pick_topic()
+    session_id = create_session(topic_id)
     # Give the WebSocket a moment to connect
     print("Waiting for session to initialize...")
     time.sleep(2)
+
+    print("\n--- AI Greeting ---")
+    stream_greeting(session_id)
 
     try:
         while True:

@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from db import get_db
+from profile import get_or_create_profile
 from providers.openai_s2s import RealtimeSession
 from review import generate_review
 
@@ -13,9 +14,41 @@ _sessions: dict[str, RealtimeSession] = {}
 _session_user_ids: dict[str, str] = {}
 
 
-async def create_session(user_id: str) -> dict:
+def _build_learner_summary(profile: dict) -> str:
+    """Build a brief learner summary string from profile data."""
+    level = profile.get("level", "intermediate")
+    data = profile.get("profile_data", {})
+    session_count = data.get("session_count", 0)
+
+    parts = [f"Level: {level}", f"Sessions completed: {session_count}"]
+
+    weak_points = data.get("weak_points", {})
+    if isinstance(weak_points, dict):
+        weak_items = []
+        for dim, points in weak_points.items():
+            if points:
+                weak_items.append(f"{dim}: {', '.join(points[:2])}")
+        if weak_items:
+            parts.append(f"Weak points: {'; '.join(weak_items)}")
+    elif isinstance(weak_points, list) and weak_points:
+        parts.append(f"Weak points: {', '.join(str(p) for p in weak_points[:4])}")
+
+    return ". ".join(parts)
+
+
+async def create_session(user_id: str, topic: dict) -> dict:
     session_id = str(uuid.uuid4())
-    session = RealtimeSession(session_id)
+
+    # Fetch learner profile for context
+    profile = await get_or_create_profile(user_id)
+    learner_summary = _build_learner_summary(profile)
+
+    # Build topic string from structured topic dict
+    topic_label = topic.get("label_en", "free conversation")
+    prompt_hint = topic.get("prompt_hint", "")
+    topic_str = f"{topic_label} — {prompt_hint}" if prompt_hint else topic_label
+
+    session = RealtimeSession(session_id, topic=topic_str, learner_summary=learner_summary)
     _sessions[session_id] = session
     _session_user_ids[session_id] = user_id
 
