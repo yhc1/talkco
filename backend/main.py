@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -252,25 +253,58 @@ async def end_session(session_id: str):
     if session["status"] == "completed":
         raise HTTPException(status_code=400, detail="Session already completed")
 
-    # Generate final session review
-    review = await generate_session_review(session_id)
+    # Check if there are any segments to review
+    seg_count = await db.execute_fetchall(
+        "SELECT COUNT(*) as cnt FROM segments WHERE session_id = ?", (session_id,)
+    )
+    if seg_count[0]["cnt"] == 0:
+        # No conversation happened — mark completed immediately, no review needed
+        await db.execute(
+            "UPDATE sessions SET status = ? WHERE id = ?",
+            ("completed", session_id),
+        )
+        await db.commit()
+        return {"session_id": session_id, "status": "completed"}
 
-    # Update status to completed
+    # Mark as completing immediately
     await db.execute(
         "UPDATE sessions SET status = ? WHERE id = ?",
-        ("completed", session_id),
+        ("completing", session_id),
     )
     await db.commit()
 
-    # Update user learning profile
-    profile = await update_profile_after_session(session["user_id"], session_id)
+    # Launch session review + profile update in background
+    asyncio.create_task(_finalize_session(session_id, session["user_id"]))
 
     return {
         "session_id": session_id,
-        "status": "completed",
-        "review": review,
-        "profile": profile,
+        "status": "completing",
     }
+
+
+async def _finalize_session(session_id: str, user_id: str) -> None:
+    """Background: generate session review + update profile in parallel, mark completed."""
+    import time as _time
+    try:
+        t0 = _time.monotonic()
+        # Run both GPT-4o calls in parallel
+        review, profile = await asyncio.gather(
+            generate_session_review(session_id),
+            update_profile_after_session(user_id, session_id),
+        )
+        t1 = _time.monotonic()
+        log.info("Session %s finalize took %.1fs (review=%s)", session_id, t1 - t0,
+                 "skipped" if review is None else "done")
+
+        db = await get_db()
+        await db.execute(
+            "UPDATE sessions SET status = ? WHERE id = ?",
+            ("completed", session_id),
+        )
+        await db.commit()
+        log.info("Session %s finalized", session_id)
+    except Exception as e:
+        log.error("Failed to finalize session %s: %s", session_id, e)
 
 
 # -- User profile endpoint --
@@ -282,4 +316,6 @@ async def get_user_profile(user_id: str):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    reload = os.environ.get("NO_RELOAD", "").lower() not in ("1", "true")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=reload)

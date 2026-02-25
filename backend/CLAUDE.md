@@ -67,8 +67,8 @@ Python Backend (FastAPI)
   - `generate_correction(session_id, segment_id, user_message) → dict` — Synchronous correction for user questions during review. Stores result in `corrections` table.
   - `generate_session_review(session_id) → dict` — Final structured review when user presses End. Stores result in `session_summaries` table.
 - `profile.py` — User Learning Profile CRUD and post-session update
-  - `get_or_create_profile(user_id) → dict` — Returns existing or creates default profile
-  - `update_profile_after_session(user_id, session_id) → dict` — Gathers session data (segments, marks, corrections, summary) and calls GPT-4o to update profile
+  - `get_or_create_profile(user_id) → dict` — Returns existing or creates default profile (default level: B1)
+  - `update_profile_after_session(user_id, session_id) → dict` — Gathers session data (segments, marks, corrections, summary) plus last 5 completed session summaries for trend context, and calls GPT-4o to update profile. Uses CEFR scale (A1–C2) for level assessment.
 
 ### Tests
 
@@ -130,10 +130,11 @@ Python Backend (FastAPI)
 
 **POST /sessions/{id}/end**
 - User finalizes the review (presses End)
-- Generates final session review (strengths, weaknesses by 4 dimensions, level assessment)
-- Updates session status to "completed", updates User Learning Profile
+- Sets status to "completing" and returns immediately
+- Background job: generates session review, updates User Learning Profile, sets status to "completed"
 - Returns 400 if session already completed
-- Response: `{ session_id, status, review: { strengths, weaknesses, level_assessment, overall }, profile }`
+- Response: `{ session_id, status: "completing" }`
+- Client polls GET /sessions/{id}/review until status="completed" and summary is present
 
 **GET /users/{user_id}/profile**
 - Returns current User Learning Profile
@@ -170,8 +171,12 @@ Python Backend (FastAPI)
    → Synchronous: generate_correction() → immediate response
 
 7. POST /sessions/{id}/end  (user presses End)
-   → generate_session_review() → structured review written to session_summaries
-   → update_profile_after_session() → updated profile
+   → Sets status to "completing", returns immediately
+   → Background: generate_session_review() + update_profile_after_session()
+   → Sets status to "completed" when done
+
+8. GET /sessions/{id}/review  (client polls until status=completed)
+   → summary appears once background finalization completes
 ```
 
 ---
@@ -250,9 +255,6 @@ cd backend && source .venv/bin/activate && python -m pytest tests/ -v
 
 ## Key Constraints
 
-- **S2S only**: Do not implement ASR + LLM + TTS pipeline mode. S2S is the only conversation mode.
-- **Conversation history**: In-memory on the Session object during active conversation. Segments persisted to SQLite after each turn.
 - **SSE streaming**: Each POST to `/chat` returns an SSE stream. Events are yielded incrementally as they arrive from OpenAI.
 - **No TTS in backend logic**: Audio output comes directly from OpenAI Realtime API, not from a separate TTS provider.
 - **Single SQLite connection**: Shared across the app via `db.get_db()`. Acceptable for single-server deployment.
-- **LLM response parsing**: Always use `.get()` with defaults — never direct dict access on LLM JSON output. Validate required fields and skip malformed entries.

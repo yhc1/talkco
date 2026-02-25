@@ -69,7 +69,7 @@ Respond as JSON:
 
 strengths: 2-3 bullet points in Traditional Chinese (繁體中文).
 weaknesses: 1-2 sentences in Traditional Chinese (繁體中文) with examples for each dimension. null if no issues.
-level_assessment: level + justification in Traditional Chinese (繁體中文).
+level_assessment: CEFR level (A1/A2/B1/B2/C1/C2) + justification in Traditional Chinese (繁體中文).
 overall: 2-3 sentence summary in Traditional Chinese (繁體中文).\
 """
 
@@ -94,11 +94,13 @@ async def generate_review(session_id: str) -> None:
         transcript_lines.append(f"  User: {row['user_text']}")
         transcript_lines.append(f"  AI: {row['ai_text']}")
     transcript = "\n".join(transcript_lines)
+    log.info("Review input for session %s (%d segments):\n%s", session_id, len(rows), transcript)
 
     result = await chat_json(REVIEW_SYSTEM_PROMPT, transcript)
+    log.info("Review raw response for session %s: %s", session_id, json.dumps(result, ensure_ascii=False))
 
     marks = result.get("marks", [])
-    log.info("Review result for session %s: %s", session_id, json.dumps(marks, ensure_ascii=False))
+    log.info("Review result for session %s: %d marks", session_id, len(marks))
     seg_map = {row["turn_index"]: row["id"] for row in rows}
 
     inserted = 0
@@ -167,8 +169,9 @@ async def generate_correction(session_id: str, segment_id: int, user_message: st
     }
 
 
-async def generate_session_review(session_id: str) -> dict:
-    """Generate final session review with strengths, weaknesses, level assessment."""
+async def generate_session_review(session_id: str) -> dict | None:
+    """Generate final session review with strengths, weaknesses, level assessment.
+    Returns None if no segments exist (nothing to review)."""
     db = await get_db()
 
     # Fetch transcript
@@ -177,6 +180,10 @@ async def generate_session_review(session_id: str) -> dict:
         "WHERE session_id = ? ORDER BY turn_index",
         (session_id,),
     )
+
+    if not segments:
+        log.warning("No segments for session %s, skipping session review", session_id)
+        return None
 
     # Fetch AI marks
     seg_ids = [s["id"] for s in segments]

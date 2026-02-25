@@ -48,6 +48,14 @@ async def create_session(user_id: str, topic: dict) -> dict:
     prompt_hint = topic.get("prompt_hint", "")
     topic_str = f"{topic_label} — {prompt_hint}" if prompt_hint else topic_label
 
+    log.info(
+        "Session context for user=%s: level=%s, sessions=%d, learner_summary=%s",
+        user_id,
+        profile.get("level", "unknown"),
+        profile.get("profile_data", {}).get("session_count", 0),
+        learner_summary,
+    )
+
     session = RealtimeSession(session_id, topic=topic_str, learner_summary=learner_summary)
     _sessions[session_id] = session
     _session_user_ids[session_id] = user_id

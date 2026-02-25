@@ -13,7 +13,13 @@ You are an English language learning assessment system for Mandarin Chinese nati
 Given a learner's current profile and their latest session data (AI-identified issues, \
 learner corrections, and session review with 4-dimension weaknesses), update the learner's profile.
 
-Assess their level as one of: beginner, elementary, intermediate, upper-intermediate, advanced.
+Assess their level using the CEFR scale:
+- A1: Can understand and use familiar everyday expressions and very basic phrases.
+- A2: Can communicate in simple, routine tasks on familiar topics.
+- B1: Can deal with most situations likely to arise while travelling or discussing familiar matters.
+- B2: Can interact with a degree of fluency and spontaneity with native speakers.
+- C1: Can express ideas fluently and spontaneously without much searching for expressions.
+- C2: Can understand virtually everything heard or read with ease.
 
 The session review evaluates four weakness dimensions:
 - grammar: verb tense, agreement, articles, prepositions
@@ -23,7 +29,7 @@ The session review evaluates four weakness dimensions:
 
 Respond with JSON:
 {
-  "level": "intermediate",
+  "level": "B1",
   "profile_data": {
     "learned_expressions": ["expression 1", "expression 2"],
     "weak_points": {
@@ -71,12 +77,12 @@ async def get_or_create_profile(user_id: str) -> dict:
     }
     await db.execute(
         "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
-        (user_id, "intermediate", json.dumps(default_data), now),
+        (user_id, "B1", json.dumps(default_data), now),
     )
     await db.commit()
     return {
         "user_id": user_id,
-        "level": "intermediate",
+        "level": "B1",
         "profile_data": default_data,
         "updated_at": now,
     }
@@ -141,6 +147,22 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         user_msg_parts.append(f"Strengths: {summary['strengths']}")
         user_msg_parts.append(f"Weaknesses: {summary['weaknesses']}")
         user_msg_parts.append(f"Level assessment: {summary['level_assessment']}")
+
+    # Fetch last 5 completed session summaries for trend context
+    recent_summaries = await db.execute_fetchall(
+        "SELECT ss.overall, ss.level_assessment, ss.weaknesses "
+        "FROM session_summaries ss "
+        "JOIN sessions s ON ss.session_id = s.id "
+        "WHERE s.user_id = ? AND s.status = 'completed' "
+        "ORDER BY s.ended_at DESC LIMIT 5",
+        (user_id,),
+    )
+    if recent_summaries:
+        user_msg_parts.append("\nRecent session history (most recent first):")
+        for i, rs in enumerate(recent_summaries, 1):
+            user_msg_parts.append(f"  Session {i}: {rs['overall']}")
+            user_msg_parts.append(f"    Level: {rs['level_assessment']}")
+            user_msg_parts.append(f"    Weaknesses: {rs['weaknesses']}")
 
     result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, "\n".join(user_msg_parts))
 

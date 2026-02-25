@@ -58,6 +58,7 @@ class RealtimeSession:
         ).enter()
 
         system_prompt = _build_system_prompt(self._topic, self._learner_summary)
+        log.info("System prompt for session %s:\n%s", self.session_id, system_prompt)
 
         await self._conn.session.update(
             session={
@@ -176,9 +177,18 @@ class RealtimeSession:
                      datetime.now(timezone.utc).isoformat()),
                 )
                 await db.commit()
+                log.info(
+                    "Segment saved: session=%s turn=%d user_text=%s",
+                    self.session_id, self._turn_index, transcript_text[:80],
+                )
                 self._turn_index += 1
             except Exception as e:
                 log.error("Failed to persist segment: %s", e)
+        else:
+            log.warning(
+                "Segment NOT saved (empty): session=%s transcript=%r response=%r",
+                self.session_id, bool(transcript_text), bool(response_text),
+            )
 
         t_end = time.monotonic()
         if t_first_audio:
