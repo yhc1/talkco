@@ -1,0 +1,403 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02AB9F8C14D35AA6671DCCED /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C9AEE5DFC77321E2A32D2B /* AudioRecorder.swift */; };
+		1FFCBF9E486419B65BCDB81B /* ConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A262CFB291CDB093E065766F /* ConversationViewModel.swift */; };
+		3467FACC7EE854A0945F36B6 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FF32C37F50E9C8C5B77291 /* AudioPlayer.swift */; };
+		493D63B19FC613FB17016E33 /* TalkCoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6437881A5902DD780EE010 /* TalkCoApp.swift */; };
+		5072F3E6931BA379253BD187 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CEB2EF5854B829AAC7DEC6D /* Config.swift */; };
+		5929752194F8F619DBFD0261 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C15FB46C2B9FAB0CDB3E6A /* ChatMessage.swift */; };
+		67F3063512293CACB7C8A088 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180A160A0C71011FE46EF91C /* Session.swift */; };
+		95768F7F37AB811B2B846CAD /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B627A99DA199B7DA6093CF0 /* APIClient.swift */; };
+		9ABC1C538980387BC4F64574 /* TopicSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EDDAACA5D79CC91B361C852 /* TopicSelectionView.swift */; };
+		E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C2C864FF3EAB8148835A16 /* Topic.swift */; };
+		F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */; };
+		A10001AA00000001AAAA0001 /* AIMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000001BBBB0001 /* AIMark.swift */; };
+		A10001AA00000002AAAA0002 /* Correction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000002BBBB0002 /* Correction.swift */; };
+		A10001AA00000003AAAA0003 /* Segment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000003BBBB0003 /* Segment.swift */; };
+		A10001AA00000004AAAA0004 /* SessionSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000004BBBB0004 /* SessionSummary.swift */; };
+		A10001AA00000005AAAA0005 /* ReviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000005BBBB0005 /* ReviewViewModel.swift */; };
+		A10001AA00000006AAAA0006 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000006BBBB0006 /* ReviewView.swift */; };
+		A10001AA00000007AAAA0007 /* SegmentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000007BBBB0007 /* SegmentCard.swift */; };
+		A10001AA00000008AAAA0008 /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000008BBBB0008 /* SessionSummaryView.swift */; };
+		A10001AA00000009AAAA0009 /* CorrectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000009BBBB0009 /* CorrectionSheet.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		180A160A0C71011FE46EF91C /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
+		3F6437881A5902DD780EE010 /* TalkCoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCoApp.swift; sourceTree = "<group>"; };
+		4CEB2EF5854B829AAC7DEC6D /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		575F8F343FBA44C75676BAF0 /* TalkCo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TalkCo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		63C9AEE5DFC77321E2A32D2B /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		6B627A99DA199B7DA6093CF0 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		75C15FB46C2B9FAB0CDB3E6A /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		7EDDAACA5D79CC91B361C852 /* TopicSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicSelectionView.swift; sourceTree = "<group>"; };
+		A1FF32C37F50E9C8C5B77291 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
+		A262CFB291CDB093E065766F /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
+		C2C2C864FF3EAB8148835A16 /* Topic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Topic.swift; sourceTree = "<group>"; };
+		B10001BB00000001BBBB0001 /* AIMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIMark.swift; sourceTree = "<group>"; };
+		B10001BB00000002BBBB0002 /* Correction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Correction.swift; sourceTree = "<group>"; };
+		B10001BB00000003BBBB0003 /* Segment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Segment.swift; sourceTree = "<group>"; };
+		B10001BB00000004BBBB0004 /* SessionSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummary.swift; sourceTree = "<group>"; };
+		B10001BB00000005BBBB0005 /* ReviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewViewModel.swift; sourceTree = "<group>"; };
+		B10001BB00000006BBBB0006 /* ReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewView.swift; sourceTree = "<group>"; };
+		B10001BB00000007BBBB0007 /* SegmentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentCard.swift; sourceTree = "<group>"; };
+		B10001BB00000008BBBB0008 /* SessionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryView.swift; sourceTree = "<group>"; };
+		B10001BB00000009BBBB0009 /* CorrectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionSheet.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		36032F7FA5ECEB3F04FD5898 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				575F8F343FBA44C75676BAF0 /* TalkCo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		43589D0AA43AD60B6D8508C0 /* TalkCo */ = {
+			isa = PBXGroup;
+			children = (
+				4CEB2EF5854B829AAC7DEC6D /* Config.swift */,
+				3F6437881A5902DD780EE010 /* TalkCoApp.swift */,
+				D915DE712E14C07DF5975397 /* Models */,
+				BC0F0F4AB14473389FAF0C84 /* Services */,
+				8C5A32EE737F4AF42B57D668 /* ViewModels */,
+				54E0066565C882264097A950 /* Views */,
+			);
+			path = TalkCo;
+			sourceTree = "<group>";
+		};
+		54E0066565C882264097A950 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */,
+				B10001BB00000009BBBB0009 /* CorrectionSheet.swift */,
+				B10001BB00000006BBBB0006 /* ReviewView.swift */,
+				B10001BB00000007BBBB0007 /* SegmentCard.swift */,
+				B10001BB00000008BBBB0008 /* SessionSummaryView.swift */,
+				7EDDAACA5D79CC91B361C852 /* TopicSelectionView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		8C5A32EE737F4AF42B57D668 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A262CFB291CDB093E065766F /* ConversationViewModel.swift */,
+				B10001BB00000005BBBB0005 /* ReviewViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		BC0F0F4AB14473389FAF0C84 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				6B627A99DA199B7DA6093CF0 /* APIClient.swift */,
+				A1FF32C37F50E9C8C5B77291 /* AudioPlayer.swift */,
+				63C9AEE5DFC77321E2A32D2B /* AudioRecorder.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		D12547078681E3B89E6BA518 = {
+			isa = PBXGroup;
+			children = (
+				43589D0AA43AD60B6D8508C0 /* TalkCo */,
+				36032F7FA5ECEB3F04FD5898 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D915DE712E14C07DF5975397 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10001BB00000001BBBB0001 /* AIMark.swift */,
+				75C15FB46C2B9FAB0CDB3E6A /* ChatMessage.swift */,
+				B10001BB00000002BBBB0002 /* Correction.swift */,
+				B10001BB00000003BBBB0003 /* Segment.swift */,
+				180A160A0C71011FE46EF91C /* Session.swift */,
+				B10001BB00000004BBBB0004 /* SessionSummary.swift */,
+				C2C2C864FF3EAB8148835A16 /* Topic.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9D8DFC87B588B7E7068690D8 /* TalkCo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 494AB023292ADCD30832F850 /* Build configuration list for PBXNativeTarget "TalkCo" */;
+			buildPhases = (
+				F494E2B7C809E77380E0E341 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TalkCo;
+			packageProductDependencies = (
+			);
+			productName = TalkCo;
+			productReference = 575F8F343FBA44C75676BAF0 /* TalkCo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		297CB2B45DD11A7E45AF5BC5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					9D8DFC87B588B7E7068690D8 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 4E811F21275BE5CCAAD243D0 /* Build configuration list for PBXProject "TalkCo" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D12547078681E3B89E6BA518;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9D8DFC87B588B7E7068690D8 /* TalkCo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F494E2B7C809E77380E0E341 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95768F7F37AB811B2B846CAD /* APIClient.swift in Sources */,
+				3467FACC7EE854A0945F36B6 /* AudioPlayer.swift in Sources */,
+				02AB9F8C14D35AA6671DCCED /* AudioRecorder.swift in Sources */,
+				5929752194F8F619DBFD0261 /* ChatMessage.swift in Sources */,
+				5072F3E6931BA379253BD187 /* Config.swift in Sources */,
+				F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */,
+				1FFCBF9E486419B65BCDB81B /* ConversationViewModel.swift in Sources */,
+				67F3063512293CACB7C8A088 /* Session.swift in Sources */,
+				493D63B19FC613FB17016E33 /* TalkCoApp.swift in Sources */,
+				E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */,
+				9ABC1C538980387BC4F64574 /* TopicSelectionView.swift in Sources */,
+				A10001AA00000001AAAA0001 /* AIMark.swift in Sources */,
+				A10001AA00000002AAAA0002 /* Correction.swift in Sources */,
+				A10001AA00000003AAAA0003 /* Segment.swift in Sources */,
+				A10001AA00000004AAAA0004 /* SessionSummary.swift in Sources */,
+				A10001AA00000005AAAA0005 /* ReviewViewModel.swift in Sources */,
+				A10001AA00000006AAAA0006 /* ReviewView.swift in Sources */,
+				A10001AA00000007AAAA0007 /* SegmentCard.swift in Sources */,
+				A10001AA00000008AAAA0008 /* SessionSummaryView.swift in Sources */,
+				A10001AA00000009AAAA0009 /* CorrectionSheet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		147A1A53685315D9A44A72A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TalkCo needs microphone access for English conversation practice.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.talkco.TalkCo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5DE3E2FAEC0C8098B2E17FE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7380ABADE15DF7D9590E58F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		EF1674098CF4D37AA45B8AF4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "TalkCo needs microphone access for English conversation practice.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.talkco.TalkCo;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		494AB023292ADCD30832F850 /* Build configuration list for PBXNativeTarget "TalkCo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				147A1A53685315D9A44A72A9 /* Debug */,
+				EF1674098CF4D37AA45B8AF4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4E811F21275BE5CCAAD243D0 /* Build configuration list for PBXProject "TalkCo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DE3E2FAEC0C8098B2E17FE3 /* Debug */,
+				7380ABADE15DF7D9590E58F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 297CB2B45DD11A7E45AF5BC5 /* Project object */;
+}

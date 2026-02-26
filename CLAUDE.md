@@ -2,7 +2,7 @@
 
 > This file defines the product's core concepts, user flow, and terminology.
 > It is the shared reference for all sub-projects (frontend, backend).
-> Implementation details belong in /frontend/CLAUDE.md and /backend/CLAUDE.md.
+> Implementation details belong in frontend @fontend/CLAUDE.md and backend @backend/CLAUDE.md.
 
 ---
 
@@ -85,12 +85,6 @@ Each topic has:
 Topic selection is a lightweight entry point, not a structured hierarchy. The topic list is hardcoded in `backend/topics.py` for the first version.
 
 ---
-
-## What This File Does NOT Cover
-
-- API design, data models, database choices → /backend/CLAUDE.md
-- UI components, screen layouts, interaction design → /frontend/CLAUDE.md
-- Algorithms for level assessment or topic generation → /backend/CLAUDE.md
 
 ## Error Learning
 Whenever you make a mistake and are corrected, append the error and the 

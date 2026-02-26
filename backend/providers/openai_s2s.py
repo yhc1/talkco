@@ -49,6 +49,7 @@ class RealtimeSession:
         self._event_queue: asyncio.Queue = asyncio.Queue()
         self._listener_task: asyncio.Task | None = None
         self._connected = False
+        self._connected_event = asyncio.Event()
         self._turn_index = 0
 
     async def connect(self) -> None:
@@ -78,10 +79,20 @@ class RealtimeSession:
         log.info("Session configured: %s", first_event.type)
 
         self._connected = True
+        self._connected_event.set()
         self._listener_task = asyncio.create_task(self._listen_loop())
 
         # Trigger AI greeting — events will flow into _event_queue
         await self._conn.response.create()
+
+    async def wait_until_connected(self, timeout: float = 15.0) -> bool:
+        """Wait for the WebSocket connection to be ready. Returns True if connected."""
+        try:
+            await asyncio.wait_for(self._connected_event.wait(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            log.error("WebSocket connection timed out for session %s", self.session_id)
+            return False
 
     async def _listen_loop(self) -> None:
         """Background task: read events from WebSocket and push to queue."""

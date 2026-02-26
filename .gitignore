@@ -1,0 +1,14 @@
+# Xcode user data
+**/xcuserdata/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.pyc
+.env
+*.db
+
+# macOS
+.DS_Store

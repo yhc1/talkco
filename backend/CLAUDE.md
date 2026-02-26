@@ -1,8 +1,6 @@
 # Backend CLAUDE.md
 
 > This file defines the backend implementation spec.
-> For product concepts and terminology, refer to the root /CLAUDE.md.
-> **Always read /CORRECTNESS.md before starting work** to avoid repeating past mistakes.
 
 ---
 
