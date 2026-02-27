@@ -13,21 +13,32 @@ final class ConversationViewModel {
     var isEnded = false
 
     private let topic: Topic
-    private var sessionId: String?
-    private let recorder = AudioRecorder()
-    private let player = AudioPlayer()
+    private(set) var sessionId: String?
+    private let api: any APIClientProtocol
+    private let recorder: AudioRecording
+    private let player: AudioPlaying
 
-    init(topic: Topic) {
+    init(topic: Topic, api: any APIClientProtocol = LiveAPIClient(), recorder: AudioRecording = AudioRecorder(), player: AudioPlaying = AudioPlayer()) {
         self.topic = topic
+        self.api = api
+        self.recorder = recorder
+        self.player = player
     }
 
     // MARK: - Session lifecycle
 
     func startSession() async {
         isConnecting = true
+
+        // Request microphone permission upfront so recording can be synchronous
+        let granted = await recorder.requestPermission()
+        if !granted {
+            log.warning("Microphone permission denied")
+        }
+
         do {
             let body = CreateSessionBody(userId: Config.userID, topicId: topic.id)
-            let resp: CreateSessionResponse = try await APIClient.post("/sessions", body: body)
+            let resp: CreateSessionResponse = try await api.post("/sessions", body: body)
             sessionId = resp.sessionId
             log.info("Session created: \(resp.sessionId)")
 
@@ -45,7 +56,7 @@ final class ConversationViewModel {
 
         var text = ""
         do {
-            for try await event in APIClient.streamSSE("/sessions/\(sessionId)/start") {
+            for try await event in api.streamSSE("/sessions/\(sessionId)/start") {
                 switch event.event {
                 case "response":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
@@ -74,7 +85,7 @@ final class ConversationViewModel {
     // MARK: - Recording (push-to-talk)
 
     func startRecording() {
-        guard !isProcessing, !isEnded else { return }
+        guard !isProcessing, !isEnded, !isRecording else { return }
         do {
             try recorder.startRecording()
             isRecording = true
@@ -101,7 +112,7 @@ final class ConversationViewModel {
         var aiText = ""
 
         do {
-            for try await event in APIClient.streamMultipart(
+            for try await event in api.streamMultipart(
                 "/sessions/\(sessionId)/chat",
                 fileData: wavData,
                 fileName: "audio.wav",
@@ -137,6 +148,52 @@ final class ConversationViewModel {
         }
     }
 
+    // MARK: - Text input
+
+    func sendText(_ text: String) {
+        guard !isProcessing, !isEnded, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        isProcessing = true
+
+        Task {
+            await sendTextMessage(trimmed)
+            isProcessing = false
+        }
+    }
+
+    private func sendTextMessage(_ text: String) async {
+        guard let sessionId else { return }
+
+        do {
+            let body = TextChatBody(text: text)
+            for try await event in api.streamSSE("/sessions/\(sessionId)/chat/text", body: body) {
+                switch event.event {
+                case "transcript":
+                    if let data = parseJSON(event.data), let t = data["text"] as? String {
+                        await MainActor.run {
+                            messages.append(ChatMessage(role: .user, text: t))
+                        }
+                    }
+                case "response":
+                    if let data = parseJSON(event.data), let t = data["text"] as? String {
+                        await MainActor.run {
+                            messages.append(ChatMessage(role: .ai, text: t))
+                        }
+                    }
+                case "audio":
+                    if let data = parseJSON(event.data), let b64 = data["audio"] as? String,
+                       let audioData = Data(base64Encoded: b64) {
+                        player.scheduleChunk(audioData)
+                    }
+                default:
+                    break
+                }
+            }
+        } catch {
+            log.error("Text chat stream error: \(error)")
+        }
+    }
+
     // MARK: - End conversation
 
     func endConversation() async -> String? {
@@ -145,7 +202,7 @@ final class ConversationViewModel {
         isEnded = true
 
         do {
-            let _: DeleteSessionResponse = try await APIClient.delete("/sessions/\(sessionId)")
+            let _: DeleteSessionResponse = try await api.delete("/sessions/\(sessionId)")
             return sessionId
         } catch {
             log.error("Failed to end conversation: \(error)")
@@ -161,7 +218,7 @@ final class ConversationViewModel {
     }
 }
 
-private struct CreateSessionBody: Encodable {
+private struct CreateSessionBody: Encodable, Sendable {
     let userId: String
     let topicId: String
 
@@ -169,4 +226,8 @@ private struct CreateSessionBody: Encodable {
         case userId = "user_id"
         case topicId = "topic_id"
     }
+}
+
+private struct TextChatBody: Encodable, Sendable {
+    let text: String
 }

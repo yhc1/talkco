@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `backend/` — FastAPI service, OpenAI providers, SQLite storage, and pytest tests.
 - `frontend/` — iOS app (SwiftUI) with models, services, view models, and views under `frontend/TalkCo/`.
-- Root docs: `CLAUDE.md` (product context), `backend/CLAUDE.md`, `frontend/CLAUDE.md`, `CORRECTNESS.md`.
+- Root docs: `CLAUDE.md` (product context), `backend/CLAUDE.md`, `frontend/CLAUDE.md`
 
 ## Build, Test, and Development Commands
 - Backend server:
@@ -34,6 +34,3 @@
 ## Security & Configuration Tips
 - Backend uses `.env` for `OPENAI_API_KEY`, `S2S_MODEL`, `CHAT_MODEL`, and `DB_PATH`.
 - SQLite database defaults to `talkco.db` in `backend/`; don’t commit local DB files.
-
-## Agent-Specific Instructions
-- Read `CORRECTNESS.md` before making changes; append new error learnings when applicable.

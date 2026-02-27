@@ -5,6 +5,8 @@ struct ConversationView: View {
     let popToRoot: () -> Void
     @State private var vm: ConversationViewModel
     @State private var navigateToReview: String?
+    @State private var textInput = ""
+    @FocusState private var isTextFieldFocused: Bool
 
     init(topic: Topic, popToRoot: @escaping () -> Void) {
         self.topic = topic
@@ -66,7 +68,7 @@ struct ConversationView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        HStack(spacing: 16) {
+        VStack(spacing: 0) {
             if vm.isConnecting {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -74,6 +76,7 @@ struct ConversationView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
+                .padding()
             } else if vm.isProcessing {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -81,22 +84,55 @@ struct ConversationView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
+                .padding()
             } else if vm.isEnded {
                 Text("對話已結束")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
+                    .padding()
             } else {
-                // Push-to-talk button
-                PushToTalkButton(
-                    isRecording: vm.isRecording,
-                    onPress: { vm.startRecording() },
-                    onRelease: { vm.stopRecording() }
-                )
-                .frame(maxWidth: .infinity)
+                HStack(spacing: 12) {
+                    // Text input
+                    TextField("輸入英文...", text: $textInput)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($isTextFieldFocused)
+                        .submitLabel(.send)
+                        .onSubmit { submitText() }
+
+                    if textInput.trimmingCharacters(in: .whitespaces).isEmpty {
+                        // Mic button (tap to toggle recording)
+                        ToggleRecordButton(
+                            isRecording: vm.isRecording,
+                            onTap: {
+                                if vm.isRecording {
+                                    vm.stopRecording()
+                                } else {
+                                    vm.startRecording()
+                                }
+                            }
+                        )
+                    } else {
+                        // Send button (when has text)
+                        Button {
+                            submitText()
+                        } label: {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .padding()
             }
         }
-        .padding()
         .background(.ultraThinMaterial)
+    }
+
+    private func submitText() {
+        let text = textInput
+        textInput = ""
+        isTextFieldFocused = false
+        vm.sendText(text)
     }
 }
 
@@ -123,30 +159,23 @@ private struct MessageBubble: View {
     }
 }
 
-private struct PushToTalkButton: View {
+private struct ToggleRecordButton: View {
     let isRecording: Bool
-    let onPress: () -> Void
-    let onRelease: () -> Void
+    let onTap: () -> Void
 
     var body: some View {
-        Image(systemName: isRecording ? "mic.fill" : "mic")
-            .font(.system(size: 28))
-            .foregroundStyle(isRecording ? .red : .accentColor)
-            .frame(width: 72, height: 72)
-            .background(
-                Circle()
-                    .fill(isRecording ? Color.red.opacity(0.15) : Color.accentColor.opacity(0.1))
-            )
-            .scaleEffect(isRecording ? 1.15 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isRecording)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isRecording { onPress() }
-                    }
-                    .onEnded { _ in
-                        onRelease()
-                    }
-            )
+        Button(action: onTap) {
+            Image(systemName: isRecording ? "stop.circle.fill" : "mic")
+                .font(.system(size: 22))
+                .foregroundStyle(isRecording ? .red : .accentColor)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(isRecording ? Color.red.opacity(0.15) : Color.accentColor.opacity(0.1))
+                )
+                .scaleEffect(isRecording ? 1.15 : 1.0)
+                .animation(.easeInOut(duration: 0.15), value: isRecording)
+        }
+        .buttonStyle(.plain)
     }
 }

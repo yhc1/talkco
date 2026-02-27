@@ -118,6 +118,35 @@ async def chat(session_id: str, audio: UploadFile = File(...)):
     )
 
 
+
+class TextChatRequest(BaseModel):
+    text: str
+
+
+@app.post("/sessions/{session_id}/chat/text")
+async def chat_text(session_id: str, req: TextChatRequest):
+    session = sessions.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not session._connected:
+        raise HTTPException(
+            status_code=503, detail="Session still connecting, try again shortly"
+        )
+
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Empty text")
+
+    return StreamingResponse(
+        session.send_text_and_stream(req.text.strip()),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 # -- Review endpoints --
 
 @app.get("/sessions/{session_id}/review")

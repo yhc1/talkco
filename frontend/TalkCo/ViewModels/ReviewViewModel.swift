@@ -13,10 +13,12 @@ final class ReviewViewModel {
     var isCompleted = false
 
     private let sessionId: String
+    private let api: any APIClientProtocol
     private var pollTask: Task<Void, Never>?
 
-    init(sessionId: String) {
+    init(sessionId: String, api: any APIClientProtocol = LiveAPIClient()) {
         self.sessionId = sessionId
+        self.api = api
     }
 
     // MARK: - Load review (poll until AI marks appear)
@@ -29,7 +31,7 @@ final class ReviewViewModel {
 
             while !Task.isCancelled {
                 do {
-                    let response: ReviewResponse = try await APIClient.get("/sessions/\(sessionId)/review")
+                    let response: ReviewResponse = try await api.get("/sessions/\(sessionId)/review")
                     errorCount = 0
                     segments = response.segments
                     status = response.status
@@ -61,7 +63,7 @@ final class ReviewViewModel {
     func submitCorrection(segmentId: Int, userMessage: String) async {
         let body = CorrectionRequest(segmentId: segmentId, userMessage: userMessage)
         do {
-            let correction: Correction = try await APIClient.post(
+            let correction: Correction = try await api.post(
                 "/sessions/\(sessionId)/corrections", body: body
             )
             if let idx = segments.firstIndex(where: { $0.id == segmentId }) {
@@ -79,7 +81,7 @@ final class ReviewViewModel {
         pollTask?.cancel()
         pollTask = Task {
             do {
-                let _: EndSessionResponse = try await APIClient.post(
+                let _: EndSessionResponse = try await api.post(
                     "/sessions/\(sessionId)/end", body: EmptyBody()
                 )
             } catch {
@@ -92,7 +94,7 @@ final class ReviewViewModel {
             var errorCount = 0
             while !Task.isCancelled {
                 do {
-                    let response: ReviewResponse = try await APIClient.get("/sessions/\(sessionId)/review")
+                    let response: ReviewResponse = try await api.get("/sessions/\(sessionId)/review")
                     errorCount = 0
                     segments = response.segments
                     status = response.status
@@ -122,4 +124,4 @@ final class ReviewViewModel {
     }
 }
 
-private struct EmptyBody: Encodable {}
+private struct EmptyBody: Encodable, Sendable {}

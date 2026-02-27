@@ -6,6 +6,50 @@ struct SSEvent {
     let data: String
 }
 
+/// Protocol for dependency injection in ViewModels.
+protocol APIClientProtocol: Sendable {
+    func get<T: Decodable>(_ path: String) async throws -> T
+    func post<T: Decodable>(_ path: String, body: some Encodable & Sendable) async throws -> T
+    func delete<T: Decodable>(_ path: String) async throws -> T
+    func streamSSE(_ path: String) -> AsyncThrowingStream<SSEvent, Error>
+    func streamSSE(_ path: String, body: some Encodable & Sendable) -> AsyncThrowingStream<SSEvent, Error>
+    func streamMultipart(
+        _ path: String,
+        fileData: Data,
+        fileName: String,
+        fieldName: String,
+        mimeType: String
+    ) -> AsyncThrowingStream<SSEvent, Error>
+}
+
+/// Live implementation wrapping the static `APIClient` methods.
+struct LiveAPIClient: APIClientProtocol {
+    func get<T: Decodable>(_ path: String) async throws -> T {
+        try await APIClient.get(path)
+    }
+    func post<T: Decodable>(_ path: String, body: some Encodable & Sendable) async throws -> T {
+        try await APIClient.post(path, body: body)
+    }
+    func delete<T: Decodable>(_ path: String) async throws -> T {
+        try await APIClient.delete(path)
+    }
+    func streamSSE(_ path: String) -> AsyncThrowingStream<SSEvent, Error> {
+        APIClient.streamSSE(path)
+    }
+    func streamSSE(_ path: String, body: some Encodable & Sendable) -> AsyncThrowingStream<SSEvent, Error> {
+        APIClient.streamSSE(path, body: body)
+    }
+    func streamMultipart(
+        _ path: String,
+        fileData: Data,
+        fileName: String,
+        fieldName: String,
+        mimeType: String
+    ) -> AsyncThrowingStream<SSEvent, Error> {
+        APIClient.streamMultipart(path, fileData: fileData, fileName: fileName, fieldName: fieldName, mimeType: mimeType)
+    }
+}
+
 /// Networking layer for the TalkCo backend.
 /// Supports JSON requests, SSE streaming, and multipart file upload.
 enum APIClient {
@@ -63,6 +107,30 @@ enum APIClient {
         }
     }
 
+    /// Streams Server-Sent Events from a POST endpoint with JSON body.
+    static func streamSSE(_ path: String, body: some Encodable) -> AsyncThrowingStream<SSEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let url = Config.baseURL.appendingPathComponent(path)
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try JSONEncoder().encode(body)
+                    request.timeoutInterval = 60
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    try validateResponse(response)
+                    try await parseSSEStream(bytes, continuation: continuation)
+                } catch {
+                    if !Task.isCancelled {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     /// Streams Server-Sent Events from a multipart POST (file upload).
     static func streamMultipart(
         _ path: String,
@@ -103,7 +171,7 @@ enum APIClient {
 
     // MARK: - Helpers
 
-    private static func validateResponse(_ response: URLResponse) throws {
+    static func validateResponse(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
@@ -132,7 +200,7 @@ enum APIClient {
         continuation.finish()
     }
 
-    private static func buildMultipartBody(
+    static func buildMultipartBody(
         boundary: String,
         fieldName: String,
         fileName: String,

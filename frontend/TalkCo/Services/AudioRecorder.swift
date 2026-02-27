@@ -1,19 +1,40 @@
 import AVFoundation
 import Foundation
 
+/// Protocol for recording audio, enabling mock injection in tests.
+protocol AudioRecording: AnyObject {
+    var isRecording: Bool { get }
+    /// Request microphone permission. Call once before any recording.
+    func requestPermission() async -> Bool
+    func startRecording() throws
+    func stopRecording() -> Data
+}
+
 /// Records PCM16, 24kHz, mono audio via AVAudioEngine.
-/// Call `startRecording()` and `stopRecording()` to capture audio.
+/// Call `requestPermission()` once, then `startRecording()` / `stopRecording()` per turn.
 @Observable
-final class AudioRecorder {
+final class AudioRecorder: AudioRecording {
     private let engine = AVAudioEngine()
     private var audioData = Data()
     private(set) var isRecording = false
+    private var permissionGranted = false
 
     private static let sampleRate: Double = 24000
     private static let channels: AVAudioChannelCount = 1
 
-    /// Start capturing microphone audio.
+    /// Request microphone permission. Call once before any recording.
+    func requestPermission() async -> Bool {
+        let granted = await AVAudioApplication.requestRecordPermission()
+        permissionGranted = granted
+        return granted
+    }
+
+    /// Start capturing microphone audio. Must be called on main thread.
     func startRecording() throws {
+        guard permissionGranted else {
+            throw RecordingError.permissionDenied
+        }
+
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
         try session.setActive(true)
@@ -50,6 +71,9 @@ final class AudioRecorder {
 
     /// Stop recording and return WAV-wrapped audio data.
     func stopRecording() -> Data {
+        guard isRecording else {
+            return Self.wrapAsWAV(pcm: Data(), sampleRate: UInt32(Self.sampleRate))
+        }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         isRecording = false
@@ -57,6 +81,17 @@ final class AudioRecorder {
         let pcm = audioData
         audioData = Data()
         return Self.wrapAsWAV(pcm: pcm, sampleRate: UInt32(Self.sampleRate))
+    }
+
+    enum RecordingError: LocalizedError {
+        case permissionDenied
+
+        var errorDescription: String? {
+            switch self {
+            case .permissionDenied:
+                return "Microphone permission is required for recording."
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -85,7 +120,7 @@ final class AudioRecorder {
         return error == nil ? outputBuffer : nil
     }
 
-    private static func wrapAsWAV(pcm: Data, sampleRate: UInt32) -> Data {
+    static func wrapAsWAV(pcm: Data, sampleRate: UInt32) -> Data {
         var wav = Data()
         let dataSize = UInt32(pcm.count)
         let bitsPerSample: UInt16 = 16

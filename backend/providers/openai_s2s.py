@@ -270,6 +270,112 @@ class RealtimeSession:
         )
         yield _sse("done", {})
 
+    async def send_text_and_stream(
+        self, text: str
+    ) -> AsyncGenerator[str, None]:
+        """
+        Send user text, trigger response, and yield SSE events.
+        Same flow as send_audio_and_stream but with text input.
+        """
+        if not self._connected:
+            raise RuntimeError("Session not connected")
+
+        t_start = time.monotonic()
+
+        # Drain stale events
+        while not self._event_queue.empty():
+            try:
+                self._event_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+        # Send text as a conversation item
+        await self._conn.conversation.item.create(
+            item={
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": text}],
+            }
+        )
+        await self._conn.response.create()
+
+        # Yield the user transcript immediately
+        yield _sse("transcript", {"text": text})
+
+        # Read events until response.done
+        response_text = ""
+        t_first_audio = None
+
+        while True:
+            try:
+                event = await asyncio.wait_for(
+                    self._event_queue.get(), timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                log.warning("Timeout waiting for event")
+                break
+
+            if event is None:
+                break
+
+            event_type = event.type
+            log.debug("Event: %s", event_type)
+
+            if event_type == "response.audio_transcript.delta":
+                response_text += event.delta or ""
+
+            elif event_type == "response.audio.delta":
+                if t_first_audio is None:
+                    t_first_audio = time.monotonic()
+                yield _sse("audio", {"audio": event.delta})
+
+            elif event_type == "response.output_item.done":
+                item = event.item
+                if getattr(item, "type", None) == "function_call":
+                    await self._handle_tool_call(item)
+                    continue
+
+            elif event_type == "response.done":
+                break
+
+            elif event_type == "error":
+                log.error("Realtime API error: %s", event)
+                break
+
+        if response_text:
+            yield _sse("response", {"text": response_text})
+
+        # Persist segment to DB
+        if text and response_text:
+            try:
+                db = await get_db()
+                await db.execute(
+                    "INSERT INTO segments (session_id, turn_index, user_text, ai_text, created_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (self.session_id, self._turn_index, text, response_text,
+                     datetime.now(timezone.utc).isoformat()),
+                )
+                await db.commit()
+                log.info(
+                    "Segment saved: session=%s turn=%d user_text=%s",
+                    self.session_id, self._turn_index, text[:80],
+                )
+                self._turn_index += 1
+            except Exception as e:
+                log.error("Failed to persist segment: %s", e)
+
+        t_end = time.monotonic()
+        if t_first_audio:
+            yield _sse(
+                "timing",
+                {"step": "first_audio", "duration_s": round(t_first_audio - t_start, 3)},
+            )
+        yield _sse(
+            "timing",
+            {"step": "total", "duration_s": round(t_end - t_start, 3)},
+        )
+        yield _sse("done", {})
+
     async def _handle_tool_call(self, item) -> None:
         """Execute a tool call and send the result back, triggering a new response."""
         name = item.name

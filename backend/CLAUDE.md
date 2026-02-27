@@ -2,25 +2,6 @@
 
 > This file defines the backend implementation spec.
 
----
-
-## Current Implementation Scope
-
-**Phase 1 : Core Conversation**
-- Session management
-- OpenAI Realtime S2S (SSE streaming)
-- System prompt injection
-- Tool calling (search_news)
-
-**Phase 2 : End-of-Conversation Review**
-- Conversation transcript storage (SQLite via aiosqlite)
-- AI Mark generation (post-conversation GPT-4o analysis, 4 dimensions)
-- Interactive corrections (user asks about segments, gets immediate responses)
-- Final session review with structured weaknesses and level assessment
-- User Learning Profile creation and update
-
----
-
 ## Architecture
 
 The mobile app never connects directly to AI providers. All communication goes through this backend.
@@ -141,44 +122,6 @@ Python Backend (FastAPI)
 
 ---
 
-## Key Flow: Conversation Lifecycle
-
-```
-1. POST /sessions { user_id, topic }
-   → Creates session, connects WebSocket in background
-   → After connect: AI greeting triggered automatically
-
-2. POST /sessions/{id}/start
-   → Streams AI greeting (text + audio via SSE)
-   → Client plays AI's opening message
-   → Greeting is NOT stored as a segment
-
-3. POST /sessions/{id}/chat  (repeatable)
-   → Normal user audio → AI response cycle
-   → turn_index starts at 0 (greeting excluded)
-
-4. DELETE /sessions/{id}
-   → Close WebSocket, update DB status to "reviewing"
-   → Background: generate_review() → AI Marks (4 dimensions)
-
-5. GET /sessions/{id}/review  (frontend polls)
-   → Returns segments + AI marks + corrections
-   → summary is null until POST /sessions/{id}/end is called
-
-6. POST /sessions/{id}/corrections  (user asks about a segment, repeatable)
-   → Synchronous: generate_correction() → immediate response
-
-7. POST /sessions/{id}/end  (user presses End)
-   → Sets status to "completing", returns immediately
-   → Background: generate_session_review() + update_profile_after_session()
-   → Sets status to "completed" when done
-
-8. GET /sessions/{id}/review  (client polls until status=completed)
-   → summary appears once background finalization completes
-```
-
----
-
 ## Weakness Dimensions
 
 Used in AI Marks, session review, and profile:
@@ -194,24 +137,6 @@ All Chinese-language output (explanations, review, assessment) is in Traditional
 
 ---
 
-## LLM Tool-Call Loop
-
-Tool calling is handled inside the S2S provider (`providers/openai_s2s.py`):
-
-```
-send history + audio + tools to OpenAI Realtime API
-if response has tool_calls:
-    execute each tool call (via tools.execute_tool)
-    send tool results back
-    trigger new response
-return final transcript + response + audio
-```
-
-Currently implemented tools:
-- `search_news` — mock news search (returns fake articles)
-
----
-
 ## Configuration
 
 Settings in `config.py` (Pydantic BaseSettings, read from `.env`):
@@ -220,34 +145,6 @@ Settings in `config.py` (Pydantic BaseSettings, read from `.env`):
 - `S2S_VOICE` — default `alloy`
 - `CHAT_MODEL` — default `gpt-4o` (used for review/profile)
 - `DB_PATH` — default `talkco.db`
-
----
-
-## Local Testing Guide
-
-```bash
-# Terminal 1 — start the server
-cd backend && source .venv/bin/activate && python main.py
-
-# Terminal 2 — run the test client
-cd backend && source .venv/bin/activate && python test_client.py
-
-# Run unit tests (no API key needed)
-cd backend && source .venv/bin/activate && python -m pytest tests/ -v
-```
-
-### Phase 1 verification
-1. Record and send a normal English sentence → verify transcript is correct, AI responds, audio plays
-2. Say "What's in the news today?" → verify tool call in backend logs, AI discusses news
-3. Continue conversation → verify context maintained across turns
-
-### Phase 2 verification
-1. Have a conversation (using test_client.py)
-2. End the session (DELETE /sessions/{id})
-3. Poll GET /sessions/{id}/review — verify AI Marks appear with 4 dimensions
-4. POST /sessions/{id}/corrections — ask about a segment, get immediate correction
-5. Finalize — POST /sessions/{id}/end — verify structured review + profile update
-6. Check profile — GET /users/test-user/profile
 
 ---
 

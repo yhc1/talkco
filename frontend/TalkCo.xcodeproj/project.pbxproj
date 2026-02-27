@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,8 +16,6 @@
 		67F3063512293CACB7C8A088 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180A160A0C71011FE46EF91C /* Session.swift */; };
 		95768F7F37AB811B2B846CAD /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B627A99DA199B7DA6093CF0 /* APIClient.swift */; };
 		9ABC1C538980387BC4F64574 /* TopicSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EDDAACA5D79CC91B361C852 /* TopicSelectionView.swift */; };
-		E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C2C864FF3EAB8148835A16 /* Topic.swift */; };
-		F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */; };
 		A10001AA00000001AAAA0001 /* AIMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000001BBBB0001 /* AIMark.swift */; };
 		A10001AA00000002AAAA0002 /* Correction.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000002BBBB0002 /* Correction.swift */; };
 		A10001AA00000003AAAA0003 /* Segment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000003BBBB0003 /* Segment.swift */; };
@@ -27,13 +25,39 @@
 		A10001AA00000007AAAA0007 /* SegmentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000007BBBB0007 /* SegmentCard.swift */; };
 		A10001AA00000008AAAA0008 /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000008BBBB0008 /* SessionSummaryView.swift */; };
 		A10001AA00000009AAAA0009 /* CorrectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000009BBBB0009 /* CorrectionSheet.swift */; };
+		E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C2C864FF3EAB8148835A16 /* Topic.swift */; };
+		F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */; };
+		T2000001000000000000AA01 /* SegmentCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000001000000000000BB01 /* SegmentCodableTests.swift */; };
+		T2000002000000000000AA02 /* SessionResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000002000000000000BB02 /* SessionResponseTests.swift */; };
+		T2000003000000000000AA03 /* SessionSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000003000000000000BB03 /* SessionSummaryTests.swift */; };
+		T2000004000000000000AA04 /* ChatMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000004000000000000BB04 /* ChatMessageTests.swift */; };
+		T2000005000000000000AA05 /* TopicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000005000000000000BB05 /* TopicTests.swift */; };
+		T2000006000000000000AA06 /* APIClientHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000006000000000000BB06 /* APIClientHelpersTests.swift */; };
+		T2000007000000000000AA07 /* AudioRecorderWAVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000007000000000000BB07 /* AudioRecorderWAVTests.swift */; };
+		T2000008000000000000AA08 /* ConversationViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000008000000000000BB08 /* ConversationViewModelTests.swift */; };
+		T2000009000000000000AA09 /* ReviewViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000009000000000000BB09 /* ReviewViewModelTests.swift */; };
+		T200000A000000000000AA0A /* MockAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000A000000000000BB0A /* MockAPIClient.swift */; };
+		T200000B000000000000AA0B /* MockAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000B000000000000BB0B /* MockAudioRecorder.swift */; };
+		T200000C000000000000AA0C /* MockAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000C000000000000BB0C /* MockAudioPlayer.swift */; };
+		T200000D000000000000AA0D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000D000000000000BB0D /* TestFixtures.swift */; };
+		T200000E000000000000AA0E /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000E000000000000BB0E /* ConfigTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		T4000004000000000000CC04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 297CB2B45DD11A7E45AF5BC5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9D8DFC87B588B7E7068690D8;
+			remoteInfo = TalkCo;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		180A160A0C71011FE46EF91C /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		3F6437881A5902DD780EE010 /* TalkCoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCoApp.swift; sourceTree = "<group>"; };
 		4CEB2EF5854B829AAC7DEC6D /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		575F8F343FBA44C75676BAF0 /* TalkCo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TalkCo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		575F8F343FBA44C75676BAF0 /* TalkCo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TalkCo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		63C9AEE5DFC77321E2A32D2B /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		6B627A99DA199B7DA6093CF0 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -41,7 +65,6 @@
 		7EDDAACA5D79CC91B361C852 /* TopicSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicSelectionView.swift; sourceTree = "<group>"; };
 		A1FF32C37F50E9C8C5B77291 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		A262CFB291CDB093E065766F /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
-		C2C2C864FF3EAB8148835A16 /* Topic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Topic.swift; sourceTree = "<group>"; };
 		B10001BB00000001BBBB0001 /* AIMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIMark.swift; sourceTree = "<group>"; };
 		B10001BB00000002BBBB0002 /* Correction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Correction.swift; sourceTree = "<group>"; };
 		B10001BB00000003BBBB0003 /* Segment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Segment.swift; sourceTree = "<group>"; };
@@ -51,6 +74,22 @@
 		B10001BB00000007BBBB0007 /* SegmentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentCard.swift; sourceTree = "<group>"; };
 		B10001BB00000008BBBB0008 /* SessionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryView.swift; sourceTree = "<group>"; };
 		B10001BB00000009BBBB0009 /* CorrectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionSheet.swift; sourceTree = "<group>"; };
+		C2C2C864FF3EAB8148835A16 /* Topic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Topic.swift; sourceTree = "<group>"; };
+		T1000001000000000000BB01 /* SegmentCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentCodableTests.swift; sourceTree = "<group>"; };
+		T1000002000000000000BB02 /* SessionResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionResponseTests.swift; sourceTree = "<group>"; };
+		T1000003000000000000BB03 /* SessionSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryTests.swift; sourceTree = "<group>"; };
+		T1000004000000000000BB04 /* ChatMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageTests.swift; sourceTree = "<group>"; };
+		T1000005000000000000BB05 /* TopicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopicTests.swift; sourceTree = "<group>"; };
+		T1000006000000000000BB06 /* APIClientHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientHelpersTests.swift; sourceTree = "<group>"; };
+		T1000007000000000000BB07 /* AudioRecorderWAVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderWAVTests.swift; sourceTree = "<group>"; };
+		T1000008000000000000BB08 /* ConversationViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModelTests.swift; sourceTree = "<group>"; };
+		T1000009000000000000BB09 /* ReviewViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewViewModelTests.swift; sourceTree = "<group>"; };
+		T100000A000000000000BB0A /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
+		T100000B000000000000BB0B /* MockAudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAudioRecorder.swift; sourceTree = "<group>"; };
+		T100000C000000000000BB0C /* MockAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAudioPlayer.swift; sourceTree = "<group>"; };
+		T100000D000000000000BB0D /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		T100000E000000000000BB0E /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
+		T4000003000000000000CC03 /* TalkCoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalkCoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -58,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				575F8F343FBA44C75676BAF0 /* TalkCo.app */,
+				T4000003000000000000CC03 /* TalkCoTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,6 +151,7 @@
 			isa = PBXGroup;
 			children = (
 				43589D0AA43AD60B6D8508C0 /* TalkCo */,
+				T3000001000000000000DD01 /* TalkCoTests */,
 				36032F7FA5ECEB3F04FD5898 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -127,6 +168,59 @@
 				C2C2C864FF3EAB8148835A16 /* Topic.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		T3000001000000000000DD01 /* TalkCoTests */ = {
+			isa = PBXGroup;
+			children = (
+				T100000E000000000000BB0E /* ConfigTests.swift */,
+				T3000005000000000000DD05 /* Helpers */,
+				T3000002000000000000DD02 /* Models */,
+				T3000003000000000000DD03 /* Services */,
+				T3000004000000000000DD04 /* ViewModels */,
+			);
+			path = TalkCoTests;
+			sourceTree = "<group>";
+		};
+		T3000002000000000000DD02 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				T1000004000000000000BB04 /* ChatMessageTests.swift */,
+				T1000001000000000000BB01 /* SegmentCodableTests.swift */,
+				T1000002000000000000BB02 /* SessionResponseTests.swift */,
+				T1000003000000000000BB03 /* SessionSummaryTests.swift */,
+				T1000005000000000000BB05 /* TopicTests.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		T3000003000000000000DD03 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				T1000006000000000000BB06 /* APIClientHelpersTests.swift */,
+				T1000007000000000000BB07 /* AudioRecorderWAVTests.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		T3000004000000000000DD04 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				T1000008000000000000BB08 /* ConversationViewModelTests.swift */,
+				T1000009000000000000BB09 /* ReviewViewModelTests.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		T3000005000000000000DD05 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				T100000A000000000000BB0A /* MockAPIClient.swift */,
+				T100000C000000000000BB0C /* MockAudioPlayer.swift */,
+				T100000B000000000000BB0B /* MockAudioRecorder.swift */,
+				T100000D000000000000BB0D /* TestFixtures.swift */,
+			);
+			path = Helpers;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -149,6 +243,22 @@
 			productReference = 575F8F343FBA44C75676BAF0 /* TalkCo.app */;
 			productType = "com.apple.product-type.application";
 		};
+		T4000001000000000000CC01 /* TalkCoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = T4000008000000000000CC08 /* Build configuration list for PBXNativeTarget "TalkCoTests" */;
+			buildPhases = (
+				T4000002000000000000CC02 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				T4000005000000000000CC05 /* PBXTargetDependency */,
+			);
+			name = TalkCoTests;
+			productName = TalkCoTests;
+			productReference = T4000003000000000000CC03 /* TalkCoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -156,10 +266,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1540;
 				TargetAttributes = {
 					9D8DFC87B588B7E7068690D8 = {
 						DevelopmentTeam = "";
+					};
+					T4000001000000000000CC01 = {
+						DevelopmentTeam = "";
+						TestTargetID = 9D8DFC87B588B7E7068690D8;
 					};
 				};
 			};
@@ -173,11 +287,11 @@
 			);
 			mainGroup = D12547078681E3B89E6BA518;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				9D8DFC87B588B7E7068690D8 /* TalkCo */,
+				T4000001000000000000CC01 /* TalkCoTests */,
 			);
 		};
 /* End PBXProject section */
@@ -210,7 +324,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		T4000002000000000000CC02 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				T2000001000000000000AA01 /* SegmentCodableTests.swift in Sources */,
+				T2000002000000000000AA02 /* SessionResponseTests.swift in Sources */,
+				T2000003000000000000AA03 /* SessionSummaryTests.swift in Sources */,
+				T2000004000000000000AA04 /* ChatMessageTests.swift in Sources */,
+				T2000005000000000000AA05 /* TopicTests.swift in Sources */,
+				T2000006000000000000AA06 /* APIClientHelpersTests.swift in Sources */,
+				T2000007000000000000AA07 /* AudioRecorderWAVTests.swift in Sources */,
+				T2000008000000000000AA08 /* ConversationViewModelTests.swift in Sources */,
+				T2000009000000000000AA09 /* ReviewViewModelTests.swift in Sources */,
+				T200000A000000000000AA0A /* MockAPIClient.swift in Sources */,
+				T200000B000000000000AA0B /* MockAudioRecorder.swift in Sources */,
+				T200000C000000000000AA0C /* MockAudioPlayer.swift in Sources */,
+				T200000D000000000000AA0D /* TestFixtures.swift in Sources */,
+				T200000E000000000000AA0E /* ConfigTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		T4000005000000000000CC05 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9D8DFC87B588B7E7068690D8 /* TalkCo */;
+			targetProxy = T4000004000000000000CC04 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		147A1A53685315D9A44A72A9 /* Debug */ = {
@@ -272,6 +415,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -335,6 +479,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -376,6 +521,50 @@
 			};
 			name = Release;
 		};
+		T4000006000000000000CC06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.talkco.TalkCoTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TalkCo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TalkCo";
+			};
+			name = Debug;
+		};
+		T4000007000000000000CC07 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.talkco.TalkCoTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TalkCo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TalkCo";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -393,6 +582,15 @@
 			buildConfigurations = (
 				5DE3E2FAEC0C8098B2E17FE3 /* Debug */,
 				7380ABADE15DF7D9590E58F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		T4000008000000000000CC08 /* Build configuration list for PBXNativeTarget "TalkCoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				T4000006000000000000CC06 /* Debug */,
+				T4000007000000000000CC07 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
