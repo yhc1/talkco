@@ -108,7 +108,6 @@ final class ConversationViewModel {
 
     private func sendAudio(_ wavData: Data) async {
         guard let sessionId else { return }
-        var userText = ""
         var aiText = ""
 
         do {
@@ -122,17 +121,11 @@ final class ConversationViewModel {
                 switch event.event {
                 case "transcript":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
-                        userText = t
-                        await MainActor.run {
-                            messages.append(ChatMessage(role: .user, text: t))
-                        }
+                        messages.append(ChatMessage(role: .user, text: t))
                     }
                 case "response":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
                         aiText = t
-                        await MainActor.run {
-                            messages.append(ChatMessage(role: .ai, text: t))
-                        }
                     }
                 case "audio":
                     if let data = parseJSON(event.data), let b64 = data["audio"] as? String,
@@ -145,6 +138,10 @@ final class ConversationViewModel {
             }
         } catch {
             log.error("Chat stream error: \(error)")
+        }
+
+        if !aiText.isEmpty {
+            messages.append(ChatMessage(role: .ai, text: aiText))
         }
     }
 
@@ -163,6 +160,7 @@ final class ConversationViewModel {
 
     private func sendTextMessage(_ text: String) async {
         guard let sessionId else { return }
+        var aiText = ""
 
         do {
             let body = TextChatBody(text: text)
@@ -170,15 +168,11 @@ final class ConversationViewModel {
                 switch event.event {
                 case "transcript":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
-                        await MainActor.run {
-                            messages.append(ChatMessage(role: .user, text: t))
-                        }
+                        messages.append(ChatMessage(role: .user, text: t))
                     }
                 case "response":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
-                        await MainActor.run {
-                            messages.append(ChatMessage(role: .ai, text: t))
-                        }
+                        aiText = t
                     }
                 case "audio":
                     if let data = parseJSON(event.data), let b64 = data["audio"] as? String,
@@ -192,18 +186,23 @@ final class ConversationViewModel {
         } catch {
             log.error("Text chat stream error: \(error)")
         }
+
+        if !aiText.isEmpty {
+            messages.append(ChatMessage(role: .ai, text: aiText))
+        }
     }
 
     // MARK: - End conversation
 
     func endConversation() async -> String? {
         guard let sessionId else { return nil }
+        let hasUserMessages = messages.contains { $0.role == .user }
         player.stop()
         isEnded = true
 
         do {
             let _: DeleteSessionResponse = try await api.delete("/sessions/\(sessionId)")
-            return sessionId
+            return hasUserMessages ? sessionId : nil
         } catch {
             log.error("Failed to end conversation: \(error)")
             return nil

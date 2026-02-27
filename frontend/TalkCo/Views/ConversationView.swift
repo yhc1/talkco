@@ -6,6 +6,7 @@ struct ConversationView: View {
     @State private var vm: ConversationViewModel
     @State private var navigateToReview: String?
     @State private var textInput = ""
+    @State private var showTextInput = false
     @FocusState private var isTextFieldFocused: Bool
 
     init(topic: Topic, popToRoot: @escaping () -> Void) {
@@ -76,7 +77,7 @@ struct ConversationView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding()
+                .padding(.vertical, 24)
             } else if vm.isProcessing {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -84,45 +85,84 @@ struct ConversationView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding()
+                .padding(.vertical, 24)
             } else if vm.isEnded {
                 Text("對話已結束")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding()
-            } else {
-                HStack(spacing: 12) {
-                    // Text input
+                    .padding(.vertical, 24)
+            } else if showTextInput {
+                // Text input mode (secondary)
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showTextInput = false
+                            isTextFieldFocused = false
+                        }
+                    } label: {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.accentColor)
+                            .frame(width: 36, height: 36)
+                    }
+
                     TextField("輸入英文...", text: $textInput)
                         .textFieldStyle(.roundedBorder)
                         .focused($isTextFieldFocused)
                         .submitLabel(.send)
                         .onSubmit { submitText() }
 
-                    if textInput.trimmingCharacters(in: .whitespaces).isEmpty {
-                        // Mic button (tap to toggle recording)
-                        ToggleRecordButton(
-                            isRecording: vm.isRecording,
-                            onTap: {
-                                if vm.isRecording {
-                                    vm.stopRecording()
-                                } else {
-                                    vm.startRecording()
-                                }
-                            }
-                        )
-                    } else {
-                        // Send button (when has text)
-                        Button {
-                            submitText()
-                        } label: {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 32))
-                                .foregroundStyle(.tint)
-                        }
+                    Button {
+                        submitText()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(
+                                textInput.trimmingCharacters(in: .whitespaces).isEmpty
+                                    ? Color(.systemGray4) : Color.accentColor
+                            )
                     }
+                    .disabled(textInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+            } else {
+                // Voice mode (primary) — large centered mic
+                HStack {
+                    // Keyboard toggle (small, left side)
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showTextInput = true
+                        }
+                        isTextFieldFocused = true
+                    } label: {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+
+                    Spacer()
+
+                    // Main mic button
+                    ToggleRecordButton(
+                        isRecording: vm.isRecording,
+                        onTap: {
+                            if vm.isRecording {
+                                vm.stopRecording()
+                            } else {
+                                vm.startRecording()
+                            }
+                        }
+                    )
+
+                    Spacer()
+
+                    // Invisible spacer to keep mic centered
+                    Color.clear.frame(width: 44, height: 44)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
             }
         }
         .background(.ultraThinMaterial)
@@ -132,6 +172,7 @@ struct ConversationView: View {
         let text = textInput
         textInput = ""
         isTextFieldFocused = false
+        showTextInput = false
         vm.sendText(text)
     }
 }
@@ -142,8 +183,12 @@ private struct MessageBubble: View {
     let message: ChatMessage
 
     var body: some View {
-        HStack {
-            if message.role == .user { Spacer(minLength: 60) }
+        HStack(alignment: .bottom, spacing: 8) {
+            if message.role == .user {
+                Spacer(minLength: 40)
+            } else {
+                avatar(systemName: "sparkles", color: .purple)
+            }
 
             Text(message.text)
                 .padding(.horizontal, 14)
@@ -154,8 +199,19 @@ private struct MessageBubble: View {
                 )
                 .foregroundStyle(message.role == .user ? .white : .primary)
 
-            if message.role == .ai { Spacer(minLength: 60) }
+            if message.role == .ai {
+                Spacer(minLength: 40)
+            } else {
+                avatar(systemName: "person.circle.fill", color: .accentColor)
+            }
         }
+    }
+
+    private func avatar(systemName: String, color: Color) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 24))
+            .foregroundStyle(color)
+            .frame(width: 32, height: 32)
     }
 }
 
@@ -165,16 +221,16 @@ private struct ToggleRecordButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            Image(systemName: isRecording ? "stop.circle.fill" : "mic")
-                .font(.system(size: 22))
-                .foregroundStyle(isRecording ? .red : .accentColor)
-                .frame(width: 44, height: 44)
+            Image(systemName: isRecording ? "stop.fill" : "mic.fill")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(isRecording ? .white : Color.accentColor)
+                .frame(width: 64, height: 64)
                 .background(
                     Circle()
-                        .fill(isRecording ? Color.red.opacity(0.15) : Color.accentColor.opacity(0.1))
+                        .fill(isRecording ? Color.red : Color.accentColor.opacity(0.12))
                 )
-                .scaleEffect(isRecording ? 1.15 : 1.0)
-                .animation(.easeInOut(duration: 0.15), value: isRecording)
+                .scaleEffect(isRecording ? 1.08 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isRecording)
         }
         .buttonStyle(.plain)
     }

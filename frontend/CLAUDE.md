@@ -48,6 +48,8 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 
 **SSE parsing**: `APIClient.parseSSEStream` reads `event:` / `data:` lines, yields `SSEvent(event, data)`.
 
+**Audio-text sync**: AI response text is deferred until after the SSE stream ends (all audio chunks scheduled), so text and audio appear simultaneously. User transcript is shown immediately. This pattern is used in `streamGreeting()`, `sendAudio()`, and `sendTextMessage()`.
+
 **Polling**: `ReviewViewModel` polls every 2 seconds. `loadReview()` stops when AI marks appear or status != "reviewing". `endReview()` stops when status == "completed" and summary != nil.
 
 **Issue type colors** (used in `SegmentCard` and `SessionSummaryView`):

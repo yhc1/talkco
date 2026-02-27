@@ -25,6 +25,10 @@
 		A10001AA00000007AAAA0007 /* SegmentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000007BBBB0007 /* SegmentCard.swift */; };
 		A10001AA00000008AAAA0008 /* SessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000008BBBB0008 /* SessionSummaryView.swift */; };
 		A10001AA00000009AAAA0009 /* CorrectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001BB00000009BBBB0009 /* CorrectionSheet.swift */; };
+		C40001AA00000001CC000001 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000001CC000001 /* MainTabView.swift */; };
+		C40001AA00000002CC000002 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000002CC000002 /* ProfileView.swift */; };
+		C40001AA00000003CC000003 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000003CC000003 /* ProfileViewModel.swift */; };
+		C40001AA00000004CC000004 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000004CC000004 /* UserProfile.swift */; };
 		E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C2C864FF3EAB8148835A16 /* Topic.swift */; };
 		F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */; };
 		T2000001000000000000AA01 /* SegmentCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000001000000000000BB01 /* SegmentCodableTests.swift */; };
@@ -75,6 +79,10 @@
 		B10001BB00000008BBBB0008 /* SessionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryView.swift; sourceTree = "<group>"; };
 		B10001BB00000009BBBB0009 /* CorrectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionSheet.swift; sourceTree = "<group>"; };
 		C2C2C864FF3EAB8148835A16 /* Topic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Topic.swift; sourceTree = "<group>"; };
+		C40001BB00000001CC000001 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		C40001BB00000002CC000002 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		C40001BB00000003CC000003 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
+		C40001BB00000004CC000004 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		T1000001000000000000BB01 /* SegmentCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentCodableTests.swift; sourceTree = "<group>"; };
 		T1000002000000000000BB02 /* SessionResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionResponseTests.swift; sourceTree = "<group>"; };
 		T1000003000000000000BB03 /* SessionSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryTests.swift; sourceTree = "<group>"; };
@@ -120,6 +128,8 @@
 			children = (
 				64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */,
 				B10001BB00000009BBBB0009 /* CorrectionSheet.swift */,
+				C40001BB00000001CC000001 /* MainTabView.swift */,
+				C40001BB00000002CC000002 /* ProfileView.swift */,
 				B10001BB00000006BBBB0006 /* ReviewView.swift */,
 				B10001BB00000007BBBB0007 /* SegmentCard.swift */,
 				B10001BB00000008BBBB0008 /* SessionSummaryView.swift */,
@@ -132,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				A262CFB291CDB093E065766F /* ConversationViewModel.swift */,
+				C40001BB00000003CC000003 /* ProfileViewModel.swift */,
 				B10001BB00000005BBBB0005 /* ReviewViewModel.swift */,
 			);
 			path = ViewModels;
@@ -166,6 +177,7 @@
 				180A160A0C71011FE46EF91C /* Session.swift */,
 				B10001BB00000004BBBB0004 /* SessionSummary.swift */,
 				C2C2C864FF3EAB8148835A16 /* Topic.swift */,
+				C40001BB00000004CC000004 /* UserProfile.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -321,6 +333,10 @@
 				A10001AA00000007AAAA0007 /* SegmentCard.swift in Sources */,
 				A10001AA00000008AAAA0008 /* SessionSummaryView.swift in Sources */,
 				A10001AA00000009AAAA0009 /* CorrectionSheet.swift in Sources */,
+				C40001AA00000001CC000001 /* MainTabView.swift in Sources */,
+				C40001AA00000002CC000002 /* ProfileView.swift in Sources */,
+				C40001AA00000003CC000003 /* ProfileViewModel.swift in Sources */,
+				C40001AA00000004CC000004 /* UserProfile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

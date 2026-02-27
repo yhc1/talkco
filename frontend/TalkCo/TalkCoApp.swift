@@ -4,7 +4,7 @@ import SwiftUI
 struct TalkCoApp: App {
     var body: some Scene {
         WindowGroup {
-            TopicSelectionView()
+            MainTabView()
         }
     }
 }

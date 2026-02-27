@@ -38,7 +38,7 @@ struct SegmentCard: View {
     @ViewBuilder
     private var issueBadges: some View {
         let allTypes = segment.aiMarks.flatMap(\.issueTypes)
-        let unique = Array(Set(allTypes))
+        let unique = Array(Set(allTypes)).sorted()
         FlowLayout(spacing: 6) {
             ForEach(unique, id: \.self) { type in
                 Text(displayName(for: type))
