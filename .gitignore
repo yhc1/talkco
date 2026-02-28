@@ -4,6 +4,9 @@
 # Claude Code local settings
 .claude/settings.local.json
 
+# JetBrains IDE
+.idea/
+
 # Python
 __pycache__/
 *.pyc

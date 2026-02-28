@@ -45,6 +45,7 @@
 		T200000C000000000000AA0C /* MockAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000C000000000000BB0C /* MockAudioPlayer.swift */; };
 		T200000D000000000000AA0D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000D000000000000BB0D /* TestFixtures.swift */; };
 		T200000E000000000000AA0E /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000E000000000000BB0E /* ConfigTests.swift */; };
+		S20001FF00000001SSSS0001 /* topics.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000001SSSS0001 /* topics.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -98,6 +99,7 @@
 		T100000D000000000000BB0D /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		T100000E000000000000BB0E /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 		T4000003000000000000CC03 /* TalkCoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalkCoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		S10001FF00000001SSSS0001 /* topics.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = topics.json; path = ../shared/topics.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -164,6 +166,7 @@
 				43589D0AA43AD60B6D8508C0 /* TalkCo */,
 				T3000001000000000000DD01 /* TalkCoTests */,
 				36032F7FA5ECEB3F04FD5898 /* Products */,
+				S10001FF00000001SSSS0001 /* topics.json */,
 			);
 			sourceTree = "<group>";
 		};
@@ -243,6 +246,7 @@
 			buildConfigurationList = 494AB023292ADCD30832F850 /* Build configuration list for PBXNativeTarget "TalkCo" */;
 			buildPhases = (
 				F494E2B7C809E77380E0E341 /* Sources */,
+				S30001FF00000001SSSS0001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -307,6 +311,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		S30001FF00000001SSSS0001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				S20001FF00000001SSSS0001 /* topics.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		F494E2B7C809E77380E0E341 /* Sources */ = {

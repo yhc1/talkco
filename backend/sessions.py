@@ -18,10 +18,11 @@ _session_modes: dict[str, str] = {}
 
 def _build_learner_summary(profile: dict) -> str:
     """Build a brief learner summary string from profile data."""
-    level = profile.get("level", "intermediate")
-    data = profile.get("profile_data", {})
-
-    parts = [f"Level: {level}"]
+    parts = []
+    level = profile.get("level")
+    if level:
+        parts.append([f"Level: {level}"])
+    data = profile.get("profile_data")
 
     weak_points = data.get("weak_points", {})
     if isinstance(weak_points, dict):
