@@ -66,9 +66,10 @@ enum TestFixtures {
 
     static func deleteSessionResponse(
         sessionId: String = "test-session-123",
-        status: String = "deleted"
+        status: String = "deleted",
+        mode: String? = nil
     ) -> DeleteSessionResponse {
-        DeleteSessionResponse(sessionId: sessionId, status: status)
+        DeleteSessionResponse(sessionId: sessionId, status: status, mode: mode)
     }
 
     static func reviewResponse(
@@ -90,13 +91,11 @@ enum TestFixtures {
     static func sessionSummary(
         strengths: [String] = ["Good vocabulary range"],
         weaknesses: [String: String?] = ["grammar": "Frequent tense errors", "naturalness": nil],
-        levelAssessment: String = "B1",
         overall: String = "Good progress overall"
     ) -> SessionSummary {
         SessionSummary(
             strengths: strengths,
             weaknesses: weaknesses,
-            levelAssessment: levelAssessment,
             overall: overall
         )
     }
@@ -143,7 +142,6 @@ enum TestFixtures {
     {
         "strengths": ["Good vocabulary"],
         "weaknesses": {"grammar": "Needs work", "naturalness": null},
-        "level_assessment": "B1",
         "overall": "Good progress"
     }
     """

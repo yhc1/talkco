@@ -16,15 +16,6 @@ struct SessionSummaryView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Level assessment
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("程度評估", systemImage: "chart.bar")
-                        .font(.headline)
-                    Text(summary.levelAssessment)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-
                 // Strengths
                 VStack(alignment: .leading, spacing: 8) {
                     Label("表現良好", systemImage: "hand.thumbsup")

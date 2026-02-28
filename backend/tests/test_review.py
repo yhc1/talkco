@@ -32,13 +32,13 @@ async def setup_db(tmp_path):
     await close_db()
 
 
-async def _insert_session_and_segments(session_id="s1", user_id="u1", turns=None):
+async def _insert_session_and_segments(session_id="s1", user_id="u1", turns=None, topic_id=None):
     """Helper to insert a session with segments."""
     db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT INTO sessions (id, user_id, started_at, status) VALUES (?, ?, ?, ?)",
-        (session_id, user_id, now, "reviewing"),
+        "INSERT INTO sessions (id, user_id, started_at, status, topic_id) VALUES (?, ?, ?, ?, ?)",
+        (session_id, user_id, now, "reviewing", topic_id),
     )
     if turns is None:
         turns = [
@@ -212,7 +212,6 @@ async def test_generate_session_review_success(mock_chat):
             "vocabulary": None,
             "sentence_structure": None,
         },
-        "level_assessment": "elementary — 基本句型尚未掌握",
         "overall": "學習者能參與基本對話，但語法和自然度需要加強。",
     }
 
@@ -236,9 +235,51 @@ async def test_generate_session_review_success(mock_chat):
     assert len(result["strengths"]) == 2
     assert result["weaknesses"]["grammar"] is not None
     assert result["weaknesses"]["vocabulary"] is None
-    assert "elementary" in result["level_assessment"]
 
     # Check DB
     summary = await db.execute_fetchall("SELECT * FROM session_summaries WHERE session_id = 's1'")
     assert len(summary) == 1
     assert json.loads(summary[0]["weaknesses"])["grammar"] is not None
+
+
+# --- generate_chat_summary tests ---
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_chat_summary_success(mock_chat):
+    """Chat summary is generated and stored in chat_summaries table."""
+    mock_chat.return_value = {
+        "summary": "Discussed favorite weekend activities. The learner shared they enjoy hiking and cooking."
+    }
+
+    await _insert_session_and_segments(topic_id="weekend")
+
+    result = await review.generate_chat_summary("s1", "weekend")
+
+    assert result["summary"] == "Discussed favorite weekend activities. The learner shared they enjoy hiking and cooking."
+    mock_chat.assert_called_once()
+
+    # Verify DB write
+    db = await get_db()
+    rows = await db.execute_fetchall("SELECT * FROM chat_summaries WHERE session_id = 's1'")
+    assert len(rows) == 1
+    assert rows[0]["topic_id"] == "weekend"
+    assert "hiking" in rows[0]["summary"]
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_chat_summary_no_segments(mock_chat):
+    """No segments → no LLM call, returns empty summary."""
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT INTO sessions (id, user_id, started_at, status, topic_id) VALUES (?, ?, ?, ?, ?)",
+        ("empty", "u1", now, "reviewing", "weekend"),
+    )
+    await db.commit()
+
+    result = await review.generate_chat_summary("empty", "weekend")
+
+    assert result["summary"] == ""
+    mock_chat.assert_not_called()

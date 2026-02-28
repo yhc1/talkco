@@ -15,21 +15,75 @@ from tools import TOOL_DEFINITIONS, execute_tool
 log = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = """\
-You are a friendly, patient English conversation partner for a Mandarin Chinese \
-native speaker who is practicing English. Adapt to the user's level — if they \
-use simple sentences, keep yours simple too; if they're advanced, match that. \
-Keep responses conversational and a natural length (1-2 sentences usually). \
-Don't correct grammar mid-conversation; just model good English naturally. \
-If the user asks about news or current events, use the search_news tool.\
+You are a friendly, patient English conversation partner for a Mandarin Chinese native speaker.
+Your goals:
+- Help the learner practice natural, real-life English conversation.
+- Adapt continuously to the learner’s level and recent performance.
+- Keep the learner relaxed and motivated.
+Conversation style:
+- Speak ONLY in English unless the user explicitly asks for Chinese.
+- Match the learner’s level: if they use simple sentences, keep yours simple; if they are advanced, you can be more complex.
+- Keep each turn concise: usually 1–3 sentences.
+- Use natural, idiomatic expressions that a native speaker would actually say in everyday conversation.
+- Ask clear, engaging follow-up questions to keep the conversation going, but don’t overwhelm the learner.
+Error handling:
+- Do NOT explicitly correct grammar or vocabulary during the conversation.
+- Instead, always respond with natural, correct English so the learner can absorb patterns implicitly.
+- If the learner directly asks for an explanation or correction, you may briefly explain in simple English.
+Context & tools:
+- You are chatting about the topic and context provided separately (e.g. today’s conversation topic and learner profile).
+- If the learner asks about news or current events, and you need up‑to‑date information, use the `search_news` tool instead of guessing.
+Overall:
+- Prioritize fluency, confidence, and naturalness over dense teaching.
+- Avoid long lectures; stay conversational and interactive.
 """
 
 
-def _build_system_prompt(topic: str, learner_summary: str) -> str:
+REVIEW_MODE_SYSTEM_PROMPT = """\
+You are a dedicated English teacher conducting targeted practice for a Mandarin Chinese native speaker.
+Your goals:
+- Design exercises based on the learner's specific weak points provided below.
+- Create realistic scenarios that require the learner to use correct grammar/vocabulary/sentence patterns.
+Interaction style:
+- After each learner response, give immediate feedback:
+  - If correct: brief encouragement (1 sentence), then present the next exercise.
+  - If incorrect: correct the mistake, briefly explain why (1-2 sentences), then give a similar exercise.
+- If the learner's response is unclear, off-topic, seems unrelated to the exercise, or is just noise/silence, \
+do NOT guess what they meant. Instead, gently ask them to try again. \
+For example: "I didn't quite catch that. Could you try answering the question again?"
+- Speak ONLY in English unless the learner explicitly asks for a Chinese explanation.
+- Keep exercises focused and varied — use different scenarios for the same pattern.
+- Maintain an encouraging, patient tone throughout.
+- Keep each turn concise: 2-4 sentences maximum.
+"""
+
+
+def _build_system_prompt(topic: str, learner_summary: str, mode: str = "conversation",
+                         weak_points_detail: str = "",
+                         prior_topic_summaries: list[str] | None = None) -> str:
     """Build a dynamic system prompt with topic and learner context."""
+    if mode == "review":
+        parts = [REVIEW_MODE_SYSTEM_PROMPT]
+        if weak_points_detail:
+            parts.append(f"\nLearner's weak points to practice:\n{weak_points_detail}")
+        if learner_summary:
+            parts.append(f"\nLearner context: {learner_summary}")
+        parts.append(
+            "\nStart by briefly greeting the learner, then immediately present the first exercise. "
+            "Keep the greeting to 1 sentence."
+        )
+        return "\n".join(parts)
+
     parts = [BASE_SYSTEM_PROMPT]
     parts.append(f"\nToday's conversation topic: {topic}")
     if learner_summary:
         parts.append(f"\nLearner context: {learner_summary}")
+    if prior_topic_summaries:
+        summaries_text = "\n".join(f"- {s}" for s in prior_topic_summaries)
+        parts.append(
+            f"\nPrevious conversations on this topic:\n{summaries_text}\n"
+            "Use this context to avoid repeating topics and build on what was discussed before."
+        )
     parts.append(
         "\nStart the conversation by greeting the learner and naturally introducing the topic. "
         "Keep the greeting warm but brief (1-2 sentences)."
@@ -40,10 +94,15 @@ def _build_system_prompt(topic: str, learner_summary: str) -> str:
 class RealtimeSession:
     """Manages one persistent WebSocket connection to OpenAI Realtime API."""
 
-    def __init__(self, session_id: str, topic: str = "free conversation", learner_summary: str = ""):
+    def __init__(self, session_id: str, topic: str = "free conversation", learner_summary: str = "",
+                 mode: str = "conversation", weak_points_detail: str = "",
+                 prior_topic_summaries: list[str] | None = None):
         self.session_id = session_id
         self._topic = topic
         self._learner_summary = learner_summary
+        self._mode = mode
+        self._weak_points_detail = weak_points_detail
+        self._prior_topic_summaries = prior_topic_summaries
         self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self._conn = None
         self._event_queue: asyncio.Queue = asyncio.Queue()
@@ -58,7 +117,9 @@ class RealtimeSession:
             model=settings.S2S_MODEL
         ).enter()
 
-        system_prompt = _build_system_prompt(self._topic, self._learner_summary)
+        system_prompt = _build_system_prompt(self._topic, self._learner_summary,
+                                               self._mode, self._weak_points_detail,
+                                               self._prior_topic_summaries)
         log.info("System prompt for session %s:\n%s", self.session_id, system_prompt)
 
         await self._conn.session.update(

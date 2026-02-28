@@ -66,7 +66,6 @@ final class SessionResponseTests: XCTestCase {
             "summary": {
                 "strengths": ["Good"],
                 "weaknesses": {},
-                "level_assessment": "A2",
                 "overall": "OK"
             }
         }
@@ -74,7 +73,7 @@ final class SessionResponseTests: XCTestCase {
         let resp = try JSONDecoder().decode(ReviewResponse.self, from: json)
         XCTAssertEqual(resp.segments.count, 1)
         XCTAssertNotNil(resp.summary)
-        XCTAssertEqual(resp.summary?.levelAssessment, "A2")
+        XCTAssertEqual(resp.summary?.overall, "OK")
     }
 
     // MARK: - EndSessionResponse

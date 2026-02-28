@@ -27,26 +27,45 @@ The session review evaluates four weakness dimensions:
 - vocabulary: word choice precision and range
 - sentence_structure: word order, Chinese-influenced patterns
 
+weak_points uses a structured format. Each dimension is an array of pattern objects:
+{
+  "pattern": "描述錯誤模式（繁體中文）",
+  "examples": [
+    { "wrong": "learner's actual utterance", "correct": "natural native expression" }
+  ]
+}
+
+Rules for updating weak_points:
+- If the same error pattern already exists, append new examples to that pattern's examples array.
+- Keep at most 5 examples per pattern (drop oldest if over).
+- If the learner has clearly improved on a pattern (no new occurrences, used correctly), remove it.
+- Use 繁體中文 for pattern descriptions.
+
 Respond with JSON:
 {
   "level": "B1",
   "profile_data": {
     "learned_expressions": ["expression 1", "expression 2"],
     "weak_points": {
-      "grammar": ["pattern 1"],
-      "naturalness": ["pattern 1"],
-      "vocabulary": ["pattern 1"],
-      "sentence_structure": ["pattern 1"]
+      "grammar": [
+        {
+          "pattern": "過去式混用為現在式",
+          "examples": [
+            { "wrong": "I go to store yesterday", "correct": "I went to the store yesterday" }
+          ]
+        }
+      ],
+      "naturalness": [],
+      "vocabulary": [],
+      "sentence_structure": []
     },
     "progress_notes": "Brief note on progress compared to previous state",
-    "session_count": 1,
     "common_errors": ["error pattern 1"]
   }
 }
 
-Merge new learned expressions and weak points with existing ones. \
-Remove weak points that the learner has clearly improved on. \
-Increment session_count from the current value.\
+Merge new learned expressions with existing ones. \
+Remove weak points that the learner has clearly improved on.\
 """
 
 
@@ -70,9 +89,13 @@ async def get_or_create_profile(user_id: str) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     default_data = {
         "learned_expressions": [],
-        "weak_points": [],
+        "weak_points": {
+            "grammar": [],
+            "naturalness": [],
+            "vocabulary": [],
+            "sentence_structure": [],
+        },
         "progress_notes": "",
-        "session_count": 0,
         "common_errors": [],
     }
     await db.execute(
@@ -116,7 +139,7 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
     )
 
     summary_rows = await db.execute_fetchall(
-        "SELECT strengths, weaknesses, level_assessment, overall FROM session_summaries WHERE session_id = ?",
+        "SELECT strengths, weaknesses, overall FROM session_summaries WHERE session_id = ?",
         (session_id,),
     )
     summary = summary_rows[0] if summary_rows else None
@@ -146,11 +169,10 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         user_msg_parts.append(f"\nSession review: {summary['overall']}")
         user_msg_parts.append(f"Strengths: {summary['strengths']}")
         user_msg_parts.append(f"Weaknesses: {summary['weaknesses']}")
-        user_msg_parts.append(f"Level assessment: {summary['level_assessment']}")
 
     # Fetch last 5 completed session summaries for trend context
     recent_summaries = await db.execute_fetchall(
-        "SELECT ss.overall, ss.level_assessment, ss.weaknesses "
+        "SELECT ss.overall, ss.weaknesses "
         "FROM session_summaries ss "
         "JOIN sessions s ON ss.session_id = s.id "
         "WHERE s.user_id = ? AND s.status = 'completed' "
@@ -161,25 +183,108 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         user_msg_parts.append("\nRecent session history (most recent first):")
         for i, rs in enumerate(recent_summaries, 1):
             user_msg_parts.append(f"  Session {i}: {rs['overall']}")
-            user_msg_parts.append(f"    Level: {rs['level_assessment']}")
             user_msg_parts.append(f"    Weaknesses: {rs['weaknesses']}")
 
     result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, "\n".join(user_msg_parts))
 
-    # Update DB
+    # Update DB — keep existing level, only update profile_data
     now = datetime.now(timezone.utc).isoformat()
-    new_level = result.get("level", profile["level"])
     new_data = json.dumps(result.get("profile_data", profile["profile_data"]), ensure_ascii=False)
 
     await db.execute(
-        "UPDATE user_profiles SET level = ?, profile_data = ?, updated_at = ? WHERE user_id = ?",
-        (new_level, new_data, now, user_id),
+        "UPDATE user_profiles SET profile_data = ?, updated_at = ? WHERE user_id = ?",
+        (new_data, now, user_id),
     )
     await db.commit()
 
     return {
         "user_id": user_id,
-        "level": new_level,
+        "level": profile["level"],
         "profile_data": result.get("profile_data", profile["profile_data"]),
         "updated_at": now,
     }
+
+
+LEVEL_EVAL_SYSTEM_PROMPT = """\
+You are an English language level assessment system for Mandarin Chinese native speakers.
+
+Given a learner's current profile and their recent session summaries, evaluate their CEFR level.
+
+CEFR scale:
+- A1: Can understand and use familiar everyday expressions and very basic phrases.
+- A2: Can communicate in simple, routine tasks on familiar topics.
+- B1: Can deal with most situations likely to arise while travelling or discussing familiar matters.
+- B2: Can interact with a degree of fluency and spontaneity with native speakers.
+- C1: Can express ideas fluently and spontaneously without much searching for expressions.
+- C2: Can understand virtually everything heard or read with ease.
+
+Respond with JSON:
+{
+  "level": "B1"
+}
+"""
+
+
+async def evaluate_level(user_id: str) -> dict:
+    """Evaluate and update the user's CEFR level based on recent sessions."""
+    db = await get_db()
+    profile = await get_or_create_profile(user_id)
+
+    # Fetch recent completed session summaries
+    recent_summaries = await db.execute_fetchall(
+        "SELECT ss.strengths, ss.weaknesses, ss.overall "
+        "FROM session_summaries ss "
+        "JOIN sessions s ON ss.session_id = s.id "
+        "WHERE s.user_id = ? AND s.status = 'completed' "
+        "ORDER BY s.ended_at DESC LIMIT 10",
+        (user_id,),
+    )
+
+    user_msg_parts = [
+        f"Current profile: {json.dumps(profile, ensure_ascii=False)}",
+        "",
+    ]
+
+    if recent_summaries:
+        user_msg_parts.append("Recent session summaries (most recent first):")
+        for i, rs in enumerate(recent_summaries, 1):
+            user_msg_parts.append(f"  Session {i}:")
+            user_msg_parts.append(f"    Strengths: {rs['strengths']}")
+            user_msg_parts.append(f"    Weaknesses: {rs['weaknesses']}")
+            user_msg_parts.append(f"    Overall: {rs['overall']}")
+    else:
+        user_msg_parts.append("No completed sessions yet.")
+
+    result = await chat_json(LEVEL_EVAL_SYSTEM_PROMPT, "\n".join(user_msg_parts))
+
+    new_level = result.get("level", profile["level"])
+    now = datetime.now(timezone.utc).isoformat()
+
+    await db.execute(
+        "UPDATE user_profiles SET level = ?, updated_at = ? WHERE user_id = ?",
+        (new_level, now, user_id),
+    )
+    await db.commit()
+
+    log.info("User %s level evaluated: %s → %s", user_id, profile["level"], new_level)
+
+    return {
+        "user_id": user_id,
+        "level": new_level,
+        "profile_data": profile["profile_data"],
+        "updated_at": now,
+    }
+
+
+def compute_needs_review(profile_data: dict) -> bool:
+    """Check if any weak point pattern has 3+ examples, indicating repeated errors."""
+    weak_points = profile_data.get("weak_points", {})
+    if not isinstance(weak_points, dict):
+        return False
+    for patterns in weak_points.values():
+        if not isinstance(patterns, list):
+            continue
+        for p in patterns:
+            if isinstance(p, dict) and len(p.get("examples", [])) >= 3:
+                return True
+    return False

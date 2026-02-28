@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id    TEXT NOT NULL,
     started_at TEXT NOT NULL,
     ended_at   TEXT,
-    status     TEXT NOT NULL DEFAULT 'active'
+    status     TEXT NOT NULL DEFAULT 'active',
+    mode       TEXT NOT NULL DEFAULT 'conversation'
 );
 
 CREATE TABLE IF NOT EXISTS segments (
@@ -53,8 +54,13 @@ CREATE TABLE IF NOT EXISTS session_summaries (
     session_id       TEXT PRIMARY KEY REFERENCES sessions(id),
     strengths        TEXT NOT NULL,      -- JSON array
     weaknesses       TEXT NOT NULL,      -- JSON object { grammar: "...", ... }
-    level_assessment TEXT NOT NULL,
     overall          TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS chat_summaries (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+    topic_id   TEXT NOT NULL,
+    summary    TEXT NOT NULL
 );
 """
 
@@ -65,6 +71,21 @@ async def init_db() -> None:
     _db.row_factory = aiosqlite.Row
     await _db.executescript(SCHEMA)
     await _db.execute("PRAGMA foreign_keys = ON")
+
+    # Migration: add mode column to sessions if missing
+    cols = await _db.execute_fetchall("PRAGMA table_info(sessions)")
+    col_names = [c["name"] for c in cols]
+    if "mode" not in col_names:
+        await _db.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'conversation'")
+    if "topic_id" not in col_names:
+        await _db.execute("ALTER TABLE sessions ADD COLUMN topic_id TEXT")
+
+    # Migration: drop level_assessment from session_summaries if present
+    ss_cols = await _db.execute_fetchall("PRAGMA table_info(session_summaries)")
+    ss_col_names = [c["name"] for c in ss_cols]
+    if "level_assessment" in ss_col_names:
+        await _db.execute("ALTER TABLE session_summaries DROP COLUMN level_assessment")
+
     await _db.commit()
 
 

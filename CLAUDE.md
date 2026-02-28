@@ -2,40 +2,37 @@
 
 > This file defines the product's core concepts, user flow, and terminology.
 > It is the shared reference for all sub-projects (frontend, backend).
-> Implementation details belong in frontend @fontend/CLAUDE.md and backend @backend/CLAUDE.md.
+> Implementation details belong in frontend @frontend/CLAUDE.md and backend @backend/CLAUDE.md.
 
 ---
 
 ## What This App Does
 
-An AI-powered English conversation practice app for Mandarin Chinese native speakers. The core loop is: have a conversation, review it with AI assistance, and let the system adapt to your level over time.
+An AI-powered English conversation practice app for Mandarin Chinese native speakers.
+The main features of this app:
+* Provides a highly personalized conversation experience, similar to talking to a real tutor. It can memorize conversation history and adjust its communication style based on the user's level.
+* It reviews parts where the user didn't express themselves well in previous sessions, helping users consciously practice areas where they're not yet fluent. (e.g. Proactive learning)
 
 ---
 
-## Core User Flow
+## User Flow
+```mermaid
+flowchart LR
+    A[Home] --> B{Conversation Type}
+    B -->|New conversation| C[Pick a topic]
+    B -->|Review mode| D[Review conversation]
+    C --> E[End of conversation review]
+    E --> F[Update user learning profile]
+```
 
-```
-[ Pick a Topic ]
-  - Frontend shows predefined topic cards
-  - User selects one
-       ↓
-[ Conversation ]
-  - AI greets the user and introduces the chosen topic
-  - User chats with AI in English
-       ↓
-[ Review Interface ]
-  - AI proactively marks Segments it identified as unnatural or incorrect
-  - User can re-describe their intent in Mandarin Chinese for any flagged Segment
-  - AI provides natural, level-appropriate English alternatives with context
-  - Shows overall summary: what the user did well, what needs improvement
-  - User presses [ End ] to finalize
-       ↓
-[ User Learning Profile Updated ]
-  - Ability level assessment updated
-  - New expressions learned recorded
-  - Progress vs. previous sessions noted
-  - Remaining weak points logged
-       ↓
-[ Next Conversation ]
-  - Difficulty and content adjusted based on updated Profile
-```
+**Node descriptions:**
+- **Home**: Two tabs — conversation and profile. Profile shows the user's latest learning progress.
+- **Pick a topic**: User picks a topic or starts a casual chat.
+- **End of conversation review**: AI points out sentences where the user needs to improve.
+- **Review conversation**: AI retrieves previous errors made by the user and acts as a tutor to help them practice.
+- **Update user learning profile**: Saves learning progress after each session.
+
+---
+
+* Each new conversation must bring relevant chat history into context. The AI needs to remember previous conversation topics. Relevant chat history is defined as history from conversations on the same topic.
+* After each conversation, the app needs to record the user's incorrect sentences, as well as a summary of the chat including the topic.

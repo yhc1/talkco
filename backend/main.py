@@ -11,8 +11,8 @@ from pydantic import BaseModel
 
 import sessions
 from db import init_db, close_db, get_db
-from profile import get_or_create_profile, update_profile_after_session
-from review import generate_correction, generate_session_review
+from profile import get_or_create_profile, update_profile_after_session, evaluate_level, compute_needs_review
+from review import generate_correction, generate_session_review, generate_chat_summary
 from topics import get_topics, get_topic_by_id
 
 logging.basicConfig(
@@ -38,7 +38,8 @@ app = FastAPI(title="TalkCo Backend", lifespan=lifespan)
 
 class CreateSessionRequest(BaseModel):
     user_id: str
-    topic_id: str
+    topic_id: str | None = None
+    mode: str = "conversation"
 
 
 class CorrectionRequest(BaseModel):
@@ -55,19 +56,27 @@ async def list_topics():
 
 @app.post("/sessions")
 async def create_session(req: CreateSessionRequest):
-    topic = get_topic_by_id(req.topic_id)
-    if topic is None:
-        raise HTTPException(status_code=400, detail=f"Unknown topic_id: {req.topic_id}")
-    result = await sessions.create_session(req.user_id, topic=topic)
+    if req.mode not in ("conversation", "review"):
+        raise HTTPException(status_code=400, detail=f"Invalid mode: {req.mode}")
+
+    topic = None
+    if req.mode == "conversation":
+        if not req.topic_id:
+            raise HTTPException(status_code=400, detail="topic_id is required for conversation mode")
+        topic = get_topic_by_id(req.topic_id)
+        if topic is None:
+            raise HTTPException(status_code=400, detail=f"Unknown topic_id: {req.topic_id}")
+
+    result = await sessions.create_session(req.user_id, topic=topic, mode=req.mode)
     return result
 
 
 @app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
-    deleted = await sessions.delete_session(session_id)
-    if not deleted:
+    result = await sessions.delete_session(session_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"session_id": session_id, "status": "reviewing"}
+    return result
 
 
 @app.post("/sessions/{session_id}/start")
@@ -219,7 +228,7 @@ async def get_review(session_id: str):
     # Fetch summary
     summary = None
     summary_rows = await db.execute_fetchall(
-        "SELECT strengths, weaknesses, level_assessment, overall "
+        "SELECT strengths, weaknesses, overall "
         "FROM session_summaries WHERE session_id = ?",
         (session_id,),
     )
@@ -228,7 +237,6 @@ async def get_review(session_id: str):
         summary = {
             "strengths": json.loads(row["strengths"]),
             "weaknesses": json.loads(row["weaknesses"]),
-            "level_assessment": row["level_assessment"],
             "overall": row["overall"],
         }
 
@@ -314,28 +322,45 @@ async def end_session(session_id: str):
 
 
 async def _finalize_session(session_id: str, user_id: str) -> None:
-    """Background: generate session review + update profile in parallel, mark completed."""
+    """Background: generate session review + update profile + chat summary in parallel, mark completed."""
     import time as _time
     try:
         t0 = _time.monotonic()
-        # Run both GPT-4o calls in parallel
-        review, profile = await asyncio.gather(
+
+        tasks = [
             generate_session_review(session_id),
             update_profile_after_session(user_id, session_id),
-        )
-        t1 = _time.monotonic()
-        log.info("Session %s finalize took %.1fs (review=%s)", session_id, t1 - t0,
-                 "skipped" if review is None else "done")
+        ]
 
+        # Add chat summary for conversation mode (has topic_id)
         db = await get_db()
-        await db.execute(
-            "UPDATE sessions SET status = ? WHERE id = ?",
-            ("completed", session_id),
+        rows = await db.execute_fetchall(
+            "SELECT topic_id FROM sessions WHERE id = ?", (session_id,)
         )
-        await db.commit()
-        log.info("Session %s finalized", session_id)
+        topic_id = rows[0]["topic_id"] if rows and rows[0]["topic_id"] else None
+        if topic_id:
+            tasks.append(generate_chat_summary(session_id, topic_id))
+
+        results = await asyncio.gather(*tasks)
+        t1 = _time.monotonic()
+        log.info("Session %s finalize took %.1fs (review=%s, chat_summary=%s)",
+                 session_id, t1 - t0,
+                 "skipped" if results[0] is None else "done",
+                 "done" if topic_id else "skipped")
     except Exception as e:
         log.error("Failed to finalize session %s: %s", session_id, e)
+    finally:
+        # Always mark session as completed so the client stops polling
+        try:
+            db = await get_db()
+            await db.execute(
+                "UPDATE sessions SET status = ? WHERE id = ?",
+                ("completed", session_id),
+            )
+            await db.commit()
+            log.info("Session %s marked completed", session_id)
+        except Exception as e:
+            log.error("Failed to mark session %s completed: %s", session_id, e)
 
 
 # -- User profile endpoint --
@@ -343,6 +368,14 @@ async def _finalize_session(session_id: str, user_id: str) -> None:
 @app.get("/users/{user_id}/profile")
 async def get_user_profile(user_id: str):
     profile = await get_or_create_profile(user_id)
+    profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
+    return profile
+
+
+@app.post("/users/{user_id}/evaluate")
+async def evaluate_user_level(user_id: str):
+    profile = await evaluate_level(user_id)
+    profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
     return profile
 
 

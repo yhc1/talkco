@@ -8,7 +8,6 @@ final class SessionSummaryTests: XCTestCase {
         let summary = try JSONDecoder().decode(SessionSummary.self, from: json)
 
         XCTAssertEqual(summary.strengths, ["Good vocabulary"])
-        XCTAssertEqual(summary.levelAssessment, "B1")
         XCTAssertEqual(summary.overall, "Good progress")
         XCTAssertEqual(summary.weaknesses["grammar"] as? String, "Needs work")
         // null value should decode as nil wrapped in Optional
@@ -20,7 +19,6 @@ final class SessionSummaryTests: XCTestCase {
         {
             "strengths": [],
             "weaknesses": {},
-            "level_assessment": "A1",
             "overall": "Beginner"
         }
         """.data(using: .utf8)!
@@ -35,7 +33,6 @@ final class SessionSummaryTests: XCTestCase {
         let decoded = try JSONDecoder().decode(SessionSummary.self, from: data)
 
         XCTAssertEqual(decoded.strengths, original.strengths)
-        XCTAssertEqual(decoded.levelAssessment, original.levelAssessment)
         XCTAssertEqual(decoded.overall, original.overall)
     }
 
@@ -49,7 +46,6 @@ final class SessionSummaryTests: XCTestCase {
                 "naturalness": null,
                 "sentence_structure": "Too simple"
             },
-            "level_assessment": "B2",
             "overall": "Intermediate"
         }
         """.data(using: .utf8)!

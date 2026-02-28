@@ -40,58 +40,91 @@ struct ProfileView: View {
                     Spacer()
                 }
                 .padding(.vertical, 8)
+
+                Button {
+                    Task { await vm.evaluateLevel() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if vm.isEvaluating {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("評估中...")
+                        } else {
+                            Text("重新評估程度")
+                        }
+                        Spacer()
+                    }
+                }
+                .disabled(vm.isEvaluating)
+            }
+
+            // Progress summary
+            if !profile.profileData.progressNotes.isEmpty {
+                Section("學習總覽") {
+                    Text(profile.profileData.progressNotes)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // Weak points
-            Section {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("需要加強")
-                        .font(.headline)
-                    weakPointRow("文法", items: profile.profileData.weakPoints.grammar, color: .red)
-                    weakPointRow("自然度", items: profile.profileData.weakPoints.naturalness, color: .orange)
-                    weakPointRow("詞彙", items: profile.profileData.weakPoints.vocabulary, color: .blue)
-                    weakPointRow("句構", items: profile.profileData.weakPoints.sentenceStructure, color: .purple)
-                }
-            }
-
-            // Stats
-            Section("練習統計") {
-                LabeledContent("練習次數", value: "\(profile.profileData.sessionCount)")
-            }
-
-            // Learned expressions
-            if !profile.profileData.learnedExpressions.isEmpty {
-                Section("學過的表達") {
-                    ForEach(profile.profileData.learnedExpressions, id: \.self) { expr in
-                        Text(expr)
-                            .font(.subheadline)
+            let wp = profile.profileData.weakPoints
+            if !wp.grammar.isEmpty || !wp.naturalness.isEmpty || !wp.vocabulary.isEmpty || !wp.sentenceStructure.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("需要加強")
+                            .font(.headline)
+                        weakPointSection("文法", patterns: wp.grammar, color: .red)
+                        weakPointSection("自然度", patterns: wp.naturalness, color: .orange)
+                        weakPointSection("詞彙", patterns: wp.vocabulary, color: .blue)
+                        weakPointSection("句構", patterns: wp.sentenceStructure, color: .purple)
                     }
                 }
             }
+
         }
     }
 
     @ViewBuilder
-    private func weakPointRow(_ label: String, items: [String], color: Color) -> some View {
-        if !items.isEmpty {
+    private func weakPointSection(_ label: String, patterns: [WeakPointPattern], color: Color) -> some View {
+        if !patterns.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text(label)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(color)
-                ForEach(items, id: \.self) { item in
-                    Text(item)
-                        .font(.caption)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(color)
-                                .frame(width: 3)
+                ForEach(patterns) { pattern in
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(pattern.examples.enumerated()), id: \.offset) { _, example in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(example.wrong)
+                                        .font(.caption)
+                                        .strikethrough()
+                                        .foregroundStyle(.red.opacity(0.7))
+                                    Text(example.correct)
+                                        .font(.caption)
+                                        .foregroundStyle(.green)
+                                }
+                                .padding(.vertical, 2)
+                            }
                         }
+                        .padding(.leading, 4)
+                    } label: {
+                        Text(pattern.pattern)
+                            .font(.caption)
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(color)
+                            .frame(width: 3)
+                    }
                 }
             }
             .padding(.vertical, 2)

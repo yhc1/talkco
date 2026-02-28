@@ -6,6 +6,7 @@ private let log = Logger(subsystem: "com.talkco", category: "Profile")
 @Observable
 final class ProfileViewModel {
     var isLoading = false
+    var isEvaluating = false
     var profile: UserProfile?
 
     private let api: any APIClientProtocol
@@ -23,5 +24,17 @@ final class ProfileViewModel {
             log.error("Failed to load profile: \(error)")
         }
         isLoading = false
+    }
+
+    func evaluateLevel() async {
+        isEvaluating = true
+        do {
+            let empty: [String: String] = [:]
+            profile = try await api.post("/users/\(Config.userID)/evaluate", body: empty)
+            log.info("Level evaluated: \(self.profile?.level ?? "?")")
+        } catch {
+            log.error("Failed to evaluate level: \(error)")
+        }
+        isEvaluating = false
     }
 }

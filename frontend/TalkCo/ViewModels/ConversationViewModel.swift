@@ -12,14 +12,16 @@ final class ConversationViewModel {
     var isProcessing = false
     var isEnded = false
 
-    private let topic: Topic
+    private let topic: Topic?
+    private let mode: String
     private(set) var sessionId: String?
     private let api: any APIClientProtocol
     private let recorder: AudioRecording
     private let player: AudioPlaying
 
-    init(topic: Topic, api: any APIClientProtocol = LiveAPIClient(), recorder: AudioRecording = AudioRecorder(), player: AudioPlaying = AudioPlayer()) {
+    init(topic: Topic? = nil, mode: String = "conversation", api: any APIClientProtocol = LiveAPIClient(), recorder: AudioRecording = AudioRecorder(), player: AudioPlaying = AudioPlayer()) {
         self.topic = topic
+        self.mode = mode
         self.api = api
         self.recorder = recorder
         self.player = player
@@ -37,10 +39,10 @@ final class ConversationViewModel {
         }
 
         do {
-            let body = CreateSessionBody(userId: Config.userID, topicId: topic.id)
+            let body = CreateSessionBody(userId: Config.userID, topicId: topic?.id, mode: mode)
             let resp: CreateSessionResponse = try await api.post("/sessions", body: body)
             sessionId = resp.sessionId
-            log.info("Session created: \(resp.sessionId)")
+            log.info("Session created: \(resp.sessionId) mode=\(self.mode)")
 
             // Stream AI greeting (backend waits internally for WebSocket ready)
             await streamGreeting()
@@ -98,16 +100,44 @@ final class ConversationViewModel {
         guard isRecording else { return }
         let wavData = recorder.stopRecording()
         isRecording = false
-        isProcessing = true
 
+        // Check if audio has meaningful speech (not just silence/noise)
+        if !Self.hasSpeech(wavData) {
+            log.info("Audio too quiet, discarding")
+            return
+        }
+
+        isProcessing = true
         Task {
             await sendAudio(wavData)
             isProcessing = false
         }
     }
 
+    /// Check PCM16 WAV audio RMS energy. Returns false if below speech threshold.
+    private static func hasSpeech(_ wavData: Data) -> Bool {
+        // WAV header is 44 bytes, PCM16 samples follow
+        guard wavData.count > 44 else { return false }
+        let pcm = wavData.dropFirst(44)
+        let sampleCount = pcm.count / 2
+        guard sampleCount > 0 else { return false }
+
+        var sumSquares: Double = 0
+        pcm.withUnsafeBytes { raw in
+            let samples = raw.bindMemory(to: Int16.self)
+            for i in 0..<sampleCount {
+                let s = Double(samples[i])
+                sumSquares += s * s
+            }
+        }
+        let rms = sqrt(sumSquares / Double(sampleCount))
+        // Int16 range is -32768...32767. Threshold ~300 filters out typical background noise.
+        return rms > 300
+    }
+
     private func sendAudio(_ wavData: Data) async {
         guard let sessionId else { return }
+        var userTranscript = ""
         var aiText = ""
 
         do {
@@ -121,13 +151,14 @@ final class ConversationViewModel {
                 switch event.event {
                 case "transcript":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
-                        messages.append(ChatMessage(role: .user, text: t))
+                        userTranscript = t
                     }
                 case "response":
                     if let data = parseJSON(event.data), let t = data["text"] as? String {
                         aiText = t
                     }
                 case "audio":
+                    // Only play audio if we got a real transcript
                     if let data = parseJSON(event.data), let b64 = data["audio"] as? String,
                        let audioData = Data(base64Encoded: b64) {
                         player.scheduleChunk(audioData)
@@ -140,6 +171,15 @@ final class ConversationViewModel {
             log.error("Chat stream error: \(error)")
         }
 
+        // Discard turn if transcript is empty or just noise (too short to be meaningful)
+        let trimmed = userTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            log.info("Empty transcript, discarding turn")
+            player.stop()
+            return
+        }
+
+        messages.append(ChatMessage(role: .user, text: trimmed))
         if !aiText.isEmpty {
             messages.append(ChatMessage(role: .ai, text: aiText))
         }
@@ -194,6 +234,7 @@ final class ConversationViewModel {
 
     // MARK: - End conversation
 
+    /// Returns session ID for review navigation (conversation mode only), or nil.
     func endConversation() async -> String? {
         guard let sessionId else { return nil }
         let hasUserMessages = messages.contains { $0.role == .user }
@@ -201,7 +242,11 @@ final class ConversationViewModel {
         isEnded = true
 
         do {
-            let _: DeleteSessionResponse = try await api.delete("/sessions/\(sessionId)")
+            let resp: DeleteSessionResponse = try await api.delete("/sessions/\(sessionId)")
+            // Review mode: no review flow needed
+            if resp.mode == "review" {
+                return nil
+            }
             return hasUserMessages ? sessionId : nil
         } catch {
             log.error("Failed to end conversation: \(error)")
@@ -219,11 +264,13 @@ final class ConversationViewModel {
 
 private struct CreateSessionBody: Encodable, Sendable {
     let userId: String
-    let topicId: String
+    let topicId: String?
+    let mode: String
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case topicId = "topic_id"
+        case mode
     }
 }
 

@@ -63,15 +63,56 @@ Respond as JSON:
     "vocabulary": "...",
     "sentence_structure": "..."
   },
-  "level_assessment": "...",
   "overall": "..."
 }
 
 strengths: 2-3 bullet points in Traditional Chinese (繁體中文).
 weaknesses: 1-2 sentences in Traditional Chinese (繁體中文) with examples for each dimension. null if no issues.
-level_assessment: CEFR level (A1/A2/B1/B2/C1/C2) + justification in Traditional Chinese (繁體中文).
 overall: 2-3 sentence summary in Traditional Chinese (繁體中文).\
 """
+
+
+CHAT_SUMMARY_SYSTEM_PROMPT = """\
+Summarize the conversation content briefly (2-3 sentences in English).
+Focus on: what topic was discussed, what key points were covered, what opinions or experiences the learner shared.
+Do NOT include language assessment or learning feedback.
+Respond as JSON: { "summary": "..." }\
+"""
+
+
+async def generate_chat_summary(session_id: str, topic_id: str) -> dict:
+    """Generate a brief content summary of the conversation and store in chat_summaries."""
+    db = await get_db()
+
+    rows = await db.execute_fetchall(
+        "SELECT turn_index, user_text, ai_text FROM segments "
+        "WHERE session_id = ? ORDER BY turn_index",
+        (session_id,),
+    )
+
+    if not rows:
+        log.warning("No segments for session %s, skipping chat summary", session_id)
+        return {"summary": ""}
+
+    transcript_lines = []
+    for row in rows:
+        transcript_lines.append(f"Turn {row['turn_index']}:")
+        transcript_lines.append(f"  User: {row['user_text']}")
+        transcript_lines.append(f"  AI: {row['ai_text']}")
+    transcript = "\n".join(transcript_lines)
+
+    result = await chat_json(CHAT_SUMMARY_SYSTEM_PROMPT, transcript)
+    summary = result.get("summary", "")
+
+    await db.execute(
+        "INSERT OR REPLACE INTO chat_summaries (session_id, topic_id, summary) "
+        "VALUES (?, ?, ?)",
+        (session_id, topic_id, summary),
+    )
+    await db.commit()
+    log.info("Chat summary saved for session %s: %s", session_id, summary[:100])
+
+    return {"summary": summary}
 
 
 async def generate_review(session_id: str) -> None:
@@ -224,18 +265,16 @@ async def generate_session_review(session_id: str) -> dict | None:
 
     strengths = result.get("strengths", [])
     weaknesses = result.get("weaknesses", {})
-    level_assessment = result.get("level_assessment", "")
     overall = result.get("overall", "")
 
     # Write to session_summaries
     await db.execute(
-        "INSERT OR REPLACE INTO session_summaries (session_id, strengths, weaknesses, level_assessment, overall) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO session_summaries (session_id, strengths, weaknesses, overall) "
+        "VALUES (?, ?, ?, ?)",
         (
             session_id,
             json.dumps(strengths, ensure_ascii=False),
             json.dumps(weaknesses, ensure_ascii=False),
-            level_assessment,
             overall,
         ),
     )
@@ -244,6 +283,5 @@ async def generate_session_review(session_id: str) -> dict | None:
     return {
         "strengths": strengths,
         "weaknesses": weaknesses,
-        "level_assessment": level_assessment,
         "overall": overall,
     }

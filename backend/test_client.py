@@ -313,7 +313,6 @@ def end_session(user_id: str, session_id: str) -> None:
     if summary:
         print(f"\n   Strengths: {summary.get('strengths', '')}")
         print(f"   Weaknesses: {summary.get('weaknesses', '')}")
-        print(f"   Level: {summary.get('level_assessment', '')}")
         print(f"   Overall: {summary.get('overall', '')}")
     else:
         print("   (Session review not ready yet — check GET /review later)")
@@ -324,7 +323,7 @@ def end_session(user_id: str, session_id: str) -> None:
     profile = resp.json()
     print(f"\n   Profile — Level: {profile.get('level', '?')}")
     pdata = profile.get("profile_data", {})
-    print(f"   Sessions: {pdata.get('session_count', '?')}")
+    print(f"   Needs review: {profile.get('needs_review', False)}")
     print(f"   Progress: {pdata.get('progress_notes', '')}")
 
 

@@ -13,10 +13,12 @@ struct CreateSessionResponse: Codable {
 struct DeleteSessionResponse: Codable {
     let sessionId: String
     let status: String
+    let mode: String?
 
     enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
         case status
+        case mode
     }
 }
 

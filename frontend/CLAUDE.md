@@ -21,13 +21,20 @@ For backend API details, refer to @../backend/CLAUDE.md.
 ## Navigation Flow
 
 ```
+MainTabView (TabView)
+  ├── Tab 1: "練習" → TopicSelectionView
+  └── Tab 2: "我的" → ProfileView
+
 TopicSelectionView (NavigationStack with NavigationPath)
-  │  NavigationLink(value: topicId)
+  │  ReviewModeCard → NavigationLink(value: "__review__")
+  │  TopicCard → NavigationLink(value: topicId)
+  │  Needs-review banner (orange, shown when needs_review=true)
   ↓
-ConversationView (topic, popToRoot closure)
-  │  "結束對話" → DELETE /sessions/{id} → set navigateToReview
+ConversationView (topic?, mode, popToRoot closure)
+  │  mode="conversation": "結束對話" → DELETE /sessions/{id} → navigateToReview
+  │  mode="review": "結束複習" → DELETE /sessions/{id} → popToRoot() (skip review)
   │  navigationBarBackButtonHidden(true)
-  ↓  navigationDestination(item: $navigateToReview)
+  ↓  navigationDestination(item: $navigateToReview) [conversation mode only]
 ReviewView (sessionId, onComplete = popToRoot)
   │  "結束學習" → POST /sessions/{id}/end → poll until completed
   │  navigationBarBackButtonHidden(true)
@@ -45,6 +52,8 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 ## Key Implementation Details
 
 **Audio format**: PCM16, 24kHz, mono. Recording wraps raw PCM in WAV headers. Playback converts Int16 → Float32.
+
+**Audio silence detection**: Before sending recorded audio, `ConversationViewModel.hasSpeech()` computes PCM16 RMS energy. Audio below threshold (~300 RMS) is discarded without sending to backend. Additionally, if OpenAI returns an empty transcript, the entire turn is discarded and audio playback is stopped.
 
 **SSE parsing**: `APIClient.parseSSEStream` reads `event:` / `data:` lines, yields `SSEvent(event, data)`.
 
@@ -64,27 +73,28 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 
 ---
 
-## Next Phase: Phase 4 — Profile + Tab Navigation
+## Session Modes
 
-User profile screen and tab-based navigation.
+**Conversation mode** (`mode="conversation"`):
+- User picks a topic → ConversationView → end → ReviewView → SessionSummaryView → home
+- `CreateSessionBody` sends `topicId` + `mode="conversation"`
+- Backend injects same-topic chat history into AI context
+- `endConversation()` returns sessionId for review navigation
 
-**Files to create:**
-```
-  Views/
-    MainTabView.swift              -- TabView: "練習" (TopicSelectionView) / "我的" (ProfileView)
-    ProfileView.swift              -- CEFR level, 4-dimension weaknesses, session count, expressions
-  ViewModels/
-    ProfileViewModel.swift         -- Load and display user profile
-```
+**Review mode** (`mode="review"`):
+- User taps "弱點複習" card → ConversationView → end → home (no review flow)
+- `CreateSessionBody` sends `topicId=nil` + `mode="review"`
+- AI acts as teacher, drilling weak points with exercises
+- `endConversation()` returns nil (skip review), `popToRoot()` is called
 
-**Files to modify:**
-- `TalkCoApp.swift` — Change root from `TopicSelectionView` to `MainTabView`
+---
 
-**Functionality:**
-1. `TabView` with two tabs: "練習" (Practice → TopicSelectionView) / "我的" (Profile → ProfileView)
-2. `ProfileView`: CEFR level display, 4-dimension weaknesses, session count, learned expressions
-3. `GET /users/{user_id}/profile` to load data
+## Profile Page
 
-**Backend endpoint:** `GET /users/{user_id}/profile`
-
-**Verification:** Complete a full session → return to home → switch to Profile tab → see updated level and weaknesses
+- **CEFR level** display with re-evaluation button
+- **學習總覽** — `progressNotes` from profile (learning progress summary)
+- **需要加強** — 4-dimension weak points with `DisclosureGroup`:
+  - Each `WeakPointPattern` has a `pattern` (繁中 description) and `examples` (wrong/correct pairs)
+  - Expand to see strikethrough wrong + green correct examples
+  - Old-format weak points (plain strings) are silently ignored
+- **Needs-review banner** on TopicSelectionView when `needs_review=true` (3+ examples on any pattern)
