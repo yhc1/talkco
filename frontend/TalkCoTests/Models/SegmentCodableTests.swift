@@ -70,7 +70,7 @@ final class SegmentCodableTests: XCTestCase {
     }
 
     func testAIMarkRoundTrip() throws {
-        let original = TestFixtures.aiMark(issueTypes: ["vocabulary", "sentence_structure"])
+        let original = TestFixtures.aiMark(issueTypes: ["naturalness", "sentence_structure"])
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(AIMark.self, from: data)
 

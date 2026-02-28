@@ -79,7 +79,6 @@ struct SessionSummaryView: View {
         switch key {
         case "grammar": .red
         case "naturalness": .orange
-        case "vocabulary": .blue
         case "sentence_structure": .purple
         default: .gray
         }
@@ -89,7 +88,6 @@ struct SessionSummaryView: View {
         switch key {
         case "grammar": "文法"
         case "naturalness": "自然度"
-        case "vocabulary": "詞彙"
         case "sentence_structure": "句構"
         default: key
         }

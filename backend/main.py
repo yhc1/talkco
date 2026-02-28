@@ -328,7 +328,7 @@ async def _finalize_session(session_id: str, user_id: str) -> None:
         t0 = _time.monotonic()
 
         tasks = [
-            generate_session_review(session_id),
+            generate_session_review(session_id, user_id),
             update_profile_after_session(user_id, session_id),
         ]
 

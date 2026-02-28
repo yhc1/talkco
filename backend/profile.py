@@ -21,10 +21,9 @@ Assess their level using the CEFR scale:
 - C1: Can express ideas fluently and spontaneously without much searching for expressions.
 - C2: Can understand virtually everything heard or read with ease.
 
-The session review evaluates four weakness dimensions:
+The session review evaluates three weakness dimensions:
 - grammar: verb tense, agreement, articles, prepositions
-- naturalness: technically correct but unnatural phrasing
-- vocabulary: word choice precision and range
+- naturalness: unnatural phrasing or imprecise/basic word choices
 - sentence_structure: word order, Chinese-influenced patterns
 
 weak_points uses a structured format. Each dimension is an array of pattern objects:
@@ -41,6 +40,10 @@ Rules for updating weak_points:
 - If the learner has clearly improved on a pattern (no new occurrences, used correctly), remove it.
 - Use 繁體中文 for pattern descriptions.
 
+Extract personal facts the learner reveals during conversation (e.g. occupation, hobbies, \
+residence, family, travel plans). Merge with existing personal_facts: keep unique facts, \
+remove duplicates, and replace outdated or contradictory facts with newer information.
+
 Respond with JSON:
 {
   "level": "B1",
@@ -56,11 +59,11 @@ Respond with JSON:
         }
       ],
       "naturalness": [],
-      "vocabulary": [],
       "sentence_structure": []
     },
     "progress_notes": "Brief note on progress compared to previous state",
-    "common_errors": ["error pattern 1"]
+    "common_errors": ["error pattern 1"],
+    "personal_facts": ["software engineer", "lives in Taipei", "enjoys hiking"]
   }
 }
 
@@ -92,20 +95,20 @@ async def get_or_create_profile(user_id: str) -> dict:
         "weak_points": {
             "grammar": [],
             "naturalness": [],
-            "vocabulary": [],
             "sentence_structure": [],
         },
         "progress_notes": "",
         "common_errors": [],
+        "personal_facts": [],
     }
     await db.execute(
         "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
-        (user_id, "B1", json.dumps(default_data), now),
+        (user_id, None, json.dumps(default_data), now),
     )
     await db.commit()
     return {
         "user_id": user_id,
-        "level": "B1",
+        "level": None,
         "profile_data": default_data,
         "updated_at": now,
     }
@@ -172,11 +175,10 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
 
     # Fetch last 5 completed session summaries for trend context
     recent_summaries = await db.execute_fetchall(
-        "SELECT ss.overall, ss.weaknesses "
-        "FROM session_summaries ss "
-        "JOIN sessions s ON ss.session_id = s.id "
-        "WHERE s.user_id = ? AND s.status = 'completed' "
-        "ORDER BY s.ended_at DESC LIMIT 5",
+        "SELECT overall, weaknesses "
+        "FROM session_summaries "
+        "WHERE user_id = ? "
+        "ORDER BY created_at DESC LIMIT 5",
         (user_id,),
     )
     if recent_summaries:
@@ -232,11 +234,10 @@ async def evaluate_level(user_id: str) -> dict:
 
     # Fetch recent completed session summaries
     recent_summaries = await db.execute_fetchall(
-        "SELECT ss.strengths, ss.weaknesses, ss.overall "
-        "FROM session_summaries ss "
-        "JOIN sessions s ON ss.session_id = s.id "
-        "WHERE s.user_id = ? AND s.status = 'completed' "
-        "ORDER BY s.ended_at DESC LIMIT 10",
+        "SELECT strengths, weaknesses, overall "
+        "FROM session_summaries "
+        "WHERE user_id = ? "
+        "ORDER BY created_at DESC LIMIT 10",
         (user_id,),
     )
 

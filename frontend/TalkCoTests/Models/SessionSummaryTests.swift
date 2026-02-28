@@ -42,7 +42,6 @@ final class SessionSummaryTests: XCTestCase {
             "strengths": ["Fluent"],
             "weaknesses": {
                 "grammar": "Tense errors",
-                "vocabulary": "Limited range",
                 "naturalness": null,
                 "sentence_structure": "Too simple"
             },
@@ -50,8 +49,8 @@ final class SessionSummaryTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let summary = try JSONDecoder().decode(SessionSummary.self, from: json)
-        XCTAssertEqual(summary.weaknesses.count, 4)
+        XCTAssertEqual(summary.weaknesses.count, 3)
         XCTAssertEqual(summary.weaknesses["grammar"] as? String, "Tense errors")
-        XCTAssertEqual(summary.weaknesses["vocabulary"] as? String, "Limited range")
+        XCTAssertEqual(summary.weaknesses["sentence_structure"] as? String, "Too simple")
     }
 }

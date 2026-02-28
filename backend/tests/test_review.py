@@ -209,7 +209,6 @@ async def test_generate_session_review_success(mock_chat):
         "weaknesses": {
             "grammar": "缺少 be 動詞，例如 'I think good' 應為 'I think it is good'",
             "naturalness": "用詞偏基礎，例如用 good 而非 nice/great",
-            "vocabulary": None,
             "sentence_structure": None,
         },
         "overall": "學習者能參與基本對話，但語法和自然度需要加強。",
@@ -230,11 +229,11 @@ async def test_generate_session_review_success(mock_chat):
     )
     await db.commit()
 
-    result = await review.generate_session_review("s1")
+    result = await review.generate_session_review("s1", "u1")
 
     assert len(result["strengths"]) == 2
     assert result["weaknesses"]["grammar"] is not None
-    assert result["weaknesses"]["vocabulary"] is None
+    assert result["weaknesses"]["sentence_structure"] is None
 
     # Check DB
     summary = await db.execute_fetchall("SELECT * FROM session_summaries WHERE session_id = 's1'")

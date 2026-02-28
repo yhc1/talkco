@@ -21,8 +21,12 @@ def _build_learner_summary(profile: dict) -> str:
     parts = []
     level = profile.get("level")
     if level:
-        parts.append([f"Level: {level}"])
+        parts.append(f"Level: {level}")
     data = profile.get("profile_data")
+
+    personal_facts = data.get("personal_facts", [])
+    if personal_facts:
+        parts.append(f"Background: {', '.join(personal_facts)}")
 
     weak_points = data.get("weak_points", {})
     if isinstance(weak_points, dict):
@@ -52,7 +56,6 @@ def _build_weak_points_for_review(profile: dict) -> str:
     dim_labels = {
         "grammar": "Grammar",
         "naturalness": "Naturalness",
-        "vocabulary": "Vocabulary",
         "sentence_structure": "Sentence Structure",
     }
 

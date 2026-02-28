@@ -31,9 +31,9 @@ struct ProfileView: View {
                 HStack {
                     Spacer()
                     VStack(spacing: 4) {
-                        Text(profile.level)
+                        Text(profile.level ?? "--")
                             .font(.system(size: 48, weight: .bold, design: .rounded))
-                        Text("CEFR 等級")
+                        Text(profile.level != nil ? "CEFR 等級" : "尚未評估")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -70,14 +70,13 @@ struct ProfileView: View {
 
             // Weak points
             let wp = profile.profileData.weakPoints
-            if !wp.grammar.isEmpty || !wp.naturalness.isEmpty || !wp.vocabulary.isEmpty || !wp.sentenceStructure.isEmpty {
+            if !wp.grammar.isEmpty || !wp.naturalness.isEmpty || !wp.sentenceStructure.isEmpty {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("需要加強")
                             .font(.headline)
                         weakPointSection("文法", patterns: wp.grammar, color: .red)
                         weakPointSection("自然度", patterns: wp.naturalness, color: .orange)
-                        weakPointSection("詞彙", patterns: wp.vocabulary, color: .blue)
                         weakPointSection("句構", patterns: wp.sentenceStructure, color: .purple)
                     }
                 }

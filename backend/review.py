@@ -14,8 +14,7 @@ Analyze the conversation transcript. For each user utterance that has issues, pr
 
 Issue categories:
 - "grammar": grammatical errors (tense, agreement, articles, prepositions)
-- "naturalness": grammatically correct but unnatural phrasing
-- "vocabulary": imprecise or overly basic word choices
+- "naturalness": unnatural phrasing or imprecise/basic word choices
 - "sentence_structure": Chinese-influenced word order or sentence patterns
 
 For each user utterance with issues, provide:
@@ -48,10 +47,9 @@ You are an English learning assessment system for Mandarin Chinese speakers.
 
 Analyze the full conversation, AI-identified issues, and learner's self-corrections.
 
-Evaluate across four dimensions:
+Evaluate across three dimensions:
 - grammar: verb tense, agreement, articles, prepositions
-- naturalness: technically correct but unnatural phrasing
-- vocabulary: word choice precision and range
+- naturalness: unnatural phrasing or imprecise/basic word choices
 - sentence_structure: word order, Chinese-influenced patterns
 
 Respond as JSON:
@@ -60,7 +58,6 @@ Respond as JSON:
   "weaknesses": {
     "grammar": "...",
     "naturalness": "...",
-    "vocabulary": "...",
     "sentence_structure": "..."
   },
   "overall": "..."
@@ -104,10 +101,11 @@ async def generate_chat_summary(session_id: str, topic_id: str) -> dict:
     result = await chat_json(CHAT_SUMMARY_SYSTEM_PROMPT, transcript)
     summary = result.get("summary", "")
 
+    now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT OR REPLACE INTO chat_summaries (session_id, topic_id, summary) "
-        "VALUES (?, ?, ?)",
-        (session_id, topic_id, summary),
+        "INSERT OR REPLACE INTO chat_summaries (session_id, topic_id, summary, created_at) "
+        "VALUES (?, ?, ?, ?)",
+        (session_id, topic_id, summary, now),
     )
     await db.commit()
     log.info("Chat summary saved for session %s: %s", session_id, summary[:100])
@@ -210,7 +208,7 @@ async def generate_correction(session_id: str, segment_id: int, user_message: st
     }
 
 
-async def generate_session_review(session_id: str) -> dict | None:
+async def generate_session_review(session_id: str, user_id: str) -> dict | None:
     """Generate final session review with strengths, weaknesses, level assessment.
     Returns None if no segments exist (nothing to review)."""
     db = await get_db()
@@ -268,14 +266,17 @@ async def generate_session_review(session_id: str) -> dict | None:
     overall = result.get("overall", "")
 
     # Write to session_summaries
+    now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT OR REPLACE INTO session_summaries (session_id, strengths, weaknesses, overall) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO session_summaries (session_id, user_id, strengths, weaknesses, overall, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
         (
             session_id,
+            user_id,
             json.dumps(strengths, ensure_ascii=False),
             json.dumps(weaknesses, ensure_ascii=False),
             overall,
+            now,
         ),
     )
     await db.commit()

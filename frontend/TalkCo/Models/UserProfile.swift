@@ -2,7 +2,7 @@ import Foundation
 
 struct UserProfile: Codable {
     let userId: String
-    let level: String
+    let level: String?
     let profileData: ProfileData
     let updatedAt: String
     let needsReview: Bool?
@@ -39,7 +39,7 @@ struct ProfileData: Codable {
         if let wp = try? container.decode(WeakPoints.self, forKey: .weakPoints) {
             weakPoints = wp
         } else {
-            weakPoints = WeakPoints(grammar: [], naturalness: [], vocabulary: [], sentenceStructure: [])
+            weakPoints = WeakPoints(grammar: [], naturalness: [], sentenceStructure: [])
         }
     }
 }
@@ -58,21 +58,18 @@ struct WeakPointExample: Codable {
 struct WeakPoints: Codable {
     let grammar: [WeakPointPattern]
     let naturalness: [WeakPointPattern]
-    let vocabulary: [WeakPointPattern]
     let sentenceStructure: [WeakPointPattern]
 
     enum CodingKeys: String, CodingKey {
         case grammar
         case naturalness
-        case vocabulary
         case sentenceStructure = "sentence_structure"
     }
 
     init(grammar: [WeakPointPattern] = [], naturalness: [WeakPointPattern] = [],
-         vocabulary: [WeakPointPattern] = [], sentenceStructure: [WeakPointPattern] = []) {
+         sentenceStructure: [WeakPointPattern] = []) {
         self.grammar = grammar
         self.naturalness = naturalness
-        self.vocabulary = vocabulary
         self.sentenceStructure = sentenceStructure
     }
 
@@ -80,7 +77,6 @@ struct WeakPoints: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         grammar = Self.decodePatterns(from: container, forKey: .grammar)
         naturalness = Self.decodePatterns(from: container, forKey: .naturalness)
-        vocabulary = Self.decodePatterns(from: container, forKey: .vocabulary)
         sentenceStructure = Self.decodePatterns(from: container, forKey: .sentenceStructure)
     }
 

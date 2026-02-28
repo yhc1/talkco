@@ -173,8 +173,7 @@ Used in AI Marks, session review, and profile:
 | Key | 中文 | Scope |
 |---|---|---|
 | `grammar` | 語法 | Tense, agreement, articles, prepositions |
-| `naturalness` | 自然度 | Grammatically correct but unnatural |
-| `vocabulary` | 詞彙 | Word choice too basic or imprecise |
+| `naturalness` | 自然度 | Unnatural phrasing or imprecise/basic word choices |
 | `sentence_structure` | 句式 | Chinese-influenced word order, missing connectors |
 
 All Chinese-language output (explanations, review, assessment) is in Traditional Chinese (繁體中文).

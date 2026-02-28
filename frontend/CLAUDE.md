@@ -66,7 +66,6 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 |---|---|---|
 | grammar | Red | 文法 |
 | naturalness | Orange | 自然度 |
-| vocabulary | Blue | 詞彙 |
 | sentence_structure | Purple | 句構 |
 
 **State pattern**: ViewModels are `@Observable` classes, initialized via `_vm = State(initialValue: ViewModel())` in view init.
@@ -93,7 +92,7 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 
 - **CEFR level** display with re-evaluation button
 - **學習總覽** — `progressNotes` from profile (learning progress summary)
-- **需要加強** — 4-dimension weak points with `DisclosureGroup`:
+- **需要加強** — 3-dimension weak points with `DisclosureGroup`:
   - Each `WeakPointPattern` has a `pattern` (繁中 description) and `examples` (wrong/correct pairs)
   - Expand to see strikethrough wrong + green correct examples
   - Old-format weak points (plain strings) are silently ignored

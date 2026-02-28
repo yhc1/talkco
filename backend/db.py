@@ -52,15 +52,18 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 
 CREATE TABLE IF NOT EXISTS session_summaries (
     session_id       TEXT PRIMARY KEY REFERENCES sessions(id),
+    user_id          TEXT NOT NULL,
     strengths        TEXT NOT NULL,      -- JSON array
     weaknesses       TEXT NOT NULL,      -- JSON object { grammar: "...", ... }
-    overall          TEXT NOT NULL
+    overall          TEXT NOT NULL,
+    created_at       TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chat_summaries (
     session_id TEXT PRIMARY KEY REFERENCES sessions(id),
     topic_id   TEXT NOT NULL,
-    summary    TEXT NOT NULL
+    summary    TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 """
 
@@ -85,6 +88,18 @@ async def init_db() -> None:
     ss_col_names = [c["name"] for c in ss_cols]
     if "level_assessment" in ss_col_names:
         await _db.execute("ALTER TABLE session_summaries DROP COLUMN level_assessment")
+
+    # Migration: add user_id and created_at to session_summaries
+    if "user_id" not in ss_col_names:
+        await _db.execute("ALTER TABLE session_summaries ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
+    if "created_at" not in ss_col_names:
+        await _db.execute("ALTER TABLE session_summaries ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
+
+    # Migration: add created_at to chat_summaries
+    cs_cols = await _db.execute_fetchall("PRAGMA table_info(chat_summaries)")
+    cs_col_names = [c["name"] for c in cs_cols]
+    if "created_at" not in cs_col_names:
+        await _db.execute("ALTER TABLE chat_summaries ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
 
     await _db.commit()
 
