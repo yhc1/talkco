@@ -17,23 +17,23 @@ struct UserProfile: Codable {
 }
 
 struct ProfileData: Codable {
-    let learnedExpressions: [String]
+    let personalFacts: [String]
     let weakPoints: WeakPoints
-    let progressNotes: String
     let commonErrors: [String]
+    let progressNotes: String
 
     enum CodingKeys: String, CodingKey {
-        case learnedExpressions = "learned_expressions"
+        case personalFacts = "personal_facts"
         case weakPoints = "weak_points"
-        case progressNotes = "progress_notes"
         case commonErrors = "common_errors"
+        case progressNotes = "progress_notes"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        learnedExpressions = (try? container.decode([String].self, forKey: .learnedExpressions)) ?? []
-        progressNotes = (try? container.decode(String.self, forKey: .progressNotes)) ?? ""
+        personalFacts = (try? container.decode([String].self, forKey: .personalFacts)) ?? []
         commonErrors = (try? container.decode([String].self, forKey: .commonErrors)) ?? []
+        progressNotes = (try? container.decode(String.self, forKey: .progressNotes)) ?? ""
 
         // weak_points can be old format (array or dict of strings) or new format (dict of pattern objects)
         if let wp = try? container.decode(WeakPoints.self, forKey: .weakPoints) {

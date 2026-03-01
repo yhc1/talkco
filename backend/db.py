@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS corrections (
 
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id      TEXT PRIMARY KEY,
-    level        TEXT NOT NULL DEFAULT 'intermediate',
+    level        TEXT,
     profile_data TEXT NOT NULL DEFAULT '{}',
     updated_at   TEXT NOT NULL
 );

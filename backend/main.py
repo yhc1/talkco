@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import sessions
 from constants import SessionMode, SessionStatus
 from db import init_db, close_db, get_db
-from profile import get_or_create_profile, update_profile_after_session, evaluate_level, compute_needs_review
+from profile import get_or_create_profile, update_profile_after_session, evaluate_level, generate_progress_notes, compute_needs_review
 from review import generate_correction, generate_session_review, generate_chat_summary
 from topics import get_topics, get_topic_by_id
 
@@ -375,7 +375,8 @@ async def get_user_profile(user_id: str):
 
 @app.post("/users/{user_id}/evaluate")
 async def evaluate_user_level(user_id: str):
-    profile = await evaluate_level(user_id)
+    await asyncio.gather(evaluate_level(user_id), generate_progress_notes(user_id))
+    profile = await get_or_create_profile(user_id)
     profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
     return profile
 

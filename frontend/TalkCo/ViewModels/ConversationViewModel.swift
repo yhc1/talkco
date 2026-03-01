@@ -42,7 +42,7 @@ final class ConversationViewModel {
             let body = CreateSessionBody(userId: Config.userID, topicId: topic?.id, mode: mode)
             let resp: CreateSessionResponse = try await api.post("/sessions", body: body)
             sessionId = resp.sessionId
-            log.info("Session created: \(resp.sessionId) mode=\(self.mode)")
+            log.info("Session created: \(resp.sessionId) mode=\(self.mode.rawValue)")
 
             // Stream AI greeting (backend waits internally for WebSocket ready)
             await streamGreeting()

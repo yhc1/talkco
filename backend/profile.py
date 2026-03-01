@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
+from config import settings
 from constants import IssueDimension
 from db import get_db
 from providers.openai_chat import chat_json
@@ -9,68 +10,55 @@ from providers.openai_chat import chat_json
 log = logging.getLogger(__name__)
 
 PROFILE_UPDATE_SYSTEM_PROMPT = """\
-You are an English language learning assessment system for Mandarin Chinese native speakers.
+You are an English language learning profile updater for Mandarin Chinese native speakers.
 
-Given a learner's current profile and their latest session data (AI-identified issues, \
-learner corrections, and session review with 4-dimension weaknesses), update the learner's profile.
+Given the learner's current profile and their latest session data, update the profile.
 
-Assess their level using the CEFR scale:
-- A1: Can understand and use familiar everyday expressions and very basic phrases.
-- A2: Can communicate in simple, routine tasks on familiar topics.
-- B1: Can deal with most situations likely to arise while travelling or discussing familiar matters.
-- B2: Can interact with a degree of fluency and spontaneity with native speakers.
-- C1: Can express ideas fluently and spontaneously without much searching for expressions.
-- C2: Can understand virtually everything heard or read with ease.
+**Input data:**
+- Current profile (personal_facts, weak_points, common_errors)
+- Session transcript (user/AI turns)
+- AI-identified issues (categorized by grammar/naturalness/sentence_structure)
+- Learner's self-corrections during review
 
-The session review evaluates three weakness dimensions:
-- grammar: verb tense, agreement, articles, prepositions
-- naturalness: unnatural phrasing or imprecise/basic word choices
-- sentence_structure: word order, Chinese-influenced patterns
+**Output rules:**
 
-weak_points uses a structured format. Each dimension is an array of pattern objects:
-{
-  "pattern": "描述錯誤模式（繁體中文）",
-  "examples": [
-    { "wrong": "learner's actual utterance", "correct": "natural native expression" }
-  ]
-}
+1. personal_facts:
+   - Extract personal information revealed during conversation
+   - Merge with existing facts; remove duplicates; replace outdated info
+   - Use 繁體中文
 
-Rules for updating weak_points:
-- If the same error pattern already exists, append new examples to that pattern's examples array.
-- Keep at most 5 examples per pattern (drop oldest if over).
-- If the learner has clearly improved on a pattern (no new occurrences, used correctly), remove it.
-- Use 繁體中文 for pattern descriptions.
+2. weak_points: Three dimensions (grammar, naturalness, sentence_structure).
+   Each is an array of pattern objects:
+   {{ "pattern": "繁中描述", "examples": [{{ "wrong": "...", "correct": "..." }}] }}
+   - Same pattern exists → append new examples (max {max_examples}, drop oldest)
+   - Learner improved on a pattern → remove it
+   - New error pattern → add it
 
-Extract personal facts the learner reveals during conversation (e.g. occupation, hobbies, \
-residence, family, travel plans). Merge with existing personal_facts: keep unique facts, \
-remove duplicates, and replace outdated or contradictory facts with newer information.
+3. common_errors:
+   - Short list of the learner's most frequent/persistent error tendencies
+   - Use 繁體中文, each item is a brief description
+   - Update based on session data: add new patterns, remove resolved ones
 
 Respond with JSON:
-{
-  "level": "B1",
-  "profile_data": {
-    "learned_expressions": ["expression 1", "expression 2"],
-    "weak_points": {
+{{
+  "profile_data": {{
+    "personal_facts": ["住在台北", "是軟體工程師"],
+    "weak_points": {{
       "grammar": [
-        {
+        {{
           "pattern": "過去式混用為現在式",
           "examples": [
-            { "wrong": "I go to store yesterday", "correct": "I went to the store yesterday" }
+            {{ "wrong": "I go to store yesterday", "correct": "I went to the store yesterday" }}
           ]
-        }
+        }}
       ],
       "naturalness": [],
       "sentence_structure": []
-    },
-    "progress_notes": "Brief note on progress compared to previous state",
-    "common_errors": ["error pattern 1"],
-    "personal_facts": ["software engineer", "lives in Taipei", "enjoys hiking"]
-  }
-}
-
-Merge new learned expressions with existing ones. \
-Remove weak points that the learner has clearly improved on.\
-"""
+    }},
+    "common_errors": ["經常漏掉冠詞 a/the"]
+  }}
+}}\
+""".format(max_examples=settings.MAX_EXAMPLES_PER_PATTERN)
 
 
 async def get_or_create_profile(user_id: str) -> dict:
@@ -92,15 +80,14 @@ async def get_or_create_profile(user_id: str) -> dict:
     # Create default profile
     now = datetime.now(timezone.utc).isoformat()
     default_data = {
-        "learned_expressions": [],
+        "personal_facts": [],
         "weak_points": {
             IssueDimension.GRAMMAR: [],
             IssueDimension.NATURALNESS: [],
             IssueDimension.SENTENCE_STRUCTURE: [],
         },
-        "progress_notes": "",
         "common_errors": [],
-        "personal_facts": [],
+        "progress_notes": "",
     }
     await db.execute(
         "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
@@ -120,7 +107,7 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
     db = await get_db()
     profile = await get_or_create_profile(user_id)
 
-    # Gather session data: segments, marks, corrections, summary
+    # Gather session data: segments, marks, corrections
     segments = await db.execute_fetchall(
         "SELECT id, turn_index, user_text, ai_text FROM segments "
         "WHERE session_id = ? ORDER BY turn_index",
@@ -142,15 +129,9 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         (session_id,),
     )
 
-    summary_rows = await db.execute_fetchall(
-        "SELECT strengths, weaknesses, overall FROM session_summaries WHERE session_id = ?",
-        (session_id,),
-    )
-    summary = summary_rows[0] if summary_rows else None
-
     # Build prompt
     user_msg_parts = [
-        f"Current profile: {json.dumps(profile, ensure_ascii=False)}",
+        f"Current profile: {json.dumps(profile['profile_data'], ensure_ascii=False)}",
         "",
         "Session transcript:",
     ]
@@ -168,25 +149,6 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         user_msg_parts.append("\nLearner corrections:")
         for c in corrections:
             user_msg_parts.append(f"  Asked: {c['user_message']}, Correction: {c['correction']}")
-
-    if summary:
-        user_msg_parts.append(f"\nSession review: {summary['overall']}")
-        user_msg_parts.append(f"Strengths: {summary['strengths']}")
-        user_msg_parts.append(f"Weaknesses: {summary['weaknesses']}")
-
-    # Fetch last 5 completed session summaries for trend context
-    recent_summaries = await db.execute_fetchall(
-        "SELECT overall, weaknesses "
-        "FROM session_summaries "
-        "WHERE user_id = ? "
-        "ORDER BY created_at DESC LIMIT 5",
-        (user_id,),
-    )
-    if recent_summaries:
-        user_msg_parts.append("\nRecent session history (most recent first):")
-        for i, rs in enumerate(recent_summaries, 1):
-            user_msg_parts.append(f"  Session {i}: {rs['overall']}")
-            user_msg_parts.append(f"    Weaknesses: {rs['weaknesses']}")
 
     result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, "\n".join(user_msg_parts))
 
@@ -209,21 +171,29 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
 
 
 LEVEL_EVAL_SYSTEM_PROMPT = """\
-You are an English language level assessment system for Mandarin Chinese native speakers.
+### Role
+You are an expert CEFR (Common European Framework of Reference for Languages) Assessor. Your task is to analyze chat logs of Mandarin Chinese native speakers and determine their current English proficiency level.
 
-Given a learner's current profile and their recent session summaries, evaluate their CEFR level.
+### Assessment Criteria
+Evaluate the input based on these detailed linguistic markers:
 
-CEFR scale:
-- A1: Can understand and use familiar everyday expressions and very basic phrases.
-- A2: Can communicate in simple, routine tasks on familiar topics.
-- B1: Can deal with most situations likely to arise while travelling or discussing familiar matters.
-- B2: Can interact with a degree of fluency and spontaneity with native speakers.
-- C1: Can express ideas fluently and spontaneously without much searching for expressions.
-- C2: Can understand virtually everything heard or read with ease.
+* **A1 (Beginner):** Uses isolated words, short phrases, and basic S+V+O structures. High reliance on memorized formulas.
+* **A2 (Elementary):** Can link groups of words with simple connectors (and, but, because). Uses past simple and future (going to) basic forms. Limited to everyday topics.
+* **B1 (Intermediate):** Can maintain a conversation but with noticeable pauses to plan. Uses a mix of simple and some complex sentences. Understandable even if there are L1 (Mandarin) interference patterns.
+* **B2 (Upper Intermediate):** Shows "effective operational proficiency." Can correct their own mistakes. Uses modal verbs for hypothesis (would/could have). Can discuss abstract topics with clear, detailed expression.
+* **C1 (Advanced):** Smooth, natural flow. Wide range of vocabulary (idioms, phrasal verbs). Rarely needs to search for expressions. Can use complex grammar (inversion, relative clauses) with high accuracy.
+* **C2 (Mastery):** Native-like precision. Can convey finer shades of meaning even in complex situations.
 
-Respond with JSON:
+### Instructions
+1. Analyze the user's grammar accuracy, vocabulary range, and conversational coherence.
+2. Consider typical "Chinglish" errors as indicators of lower levels (A1-B1).
+3. First, provide a brief internal justification for the level chosen.
+4. Output the final result in the specified JSON format.
+
+### Output Format
 {
-  "level": "B1"
+  "analysis": "Briefly describe the grammar, vocab, and fluency observed.",
+  "level": "A1 | A2 | B1 | B2 | C1 | C2"
 }
 """
 
@@ -238,7 +208,7 @@ async def evaluate_level(user_id: str) -> dict:
         "SELECT strengths, weaknesses, overall "
         "FROM session_summaries "
         "WHERE user_id = ? "
-        "ORDER BY created_at DESC LIMIT 10",
+        f"ORDER BY created_at DESC LIMIT {settings.LEVEL_EVAL_SESSION_LIMIT}",
         (user_id,),
     )
 
@@ -273,6 +243,101 @@ async def evaluate_level(user_id: str) -> dict:
     return {
         "user_id": user_id,
         "level": new_level,
+        "profile_data": profile["profile_data"],
+        "updated_at": now,
+    }
+
+
+PROGRESS_NOTES_SYSTEM_PROMPT = """\
+You are a learning progress summarizer for a Mandarin Chinese native speaker learning English.
+
+Given the learner's current profile and their recent session data (conversation summaries and review summaries), \
+produce a concise learning progress summary in 繁體中文.
+
+Include:
+1. 最近練習了什麼主題或內容
+2. 有什麼明顯的進步或改善
+3. 接下來建議加強的方向
+
+Keep the summary brief (3-5 sentences). Be encouraging but honest.
+
+Respond with JSON:
+{
+  "progress_notes": "繁體中文摘要..."
+}\
+"""
+
+
+async def generate_progress_notes(user_id: str) -> dict:
+    """Generate a learning progress summary based on recent sessions."""
+    db = await get_db()
+    profile = await get_or_create_profile(user_id)
+
+    limit = settings.PROGRESS_NOTES_SESSION_LIMIT
+
+    # Fetch recent conversation session summaries
+    session_summaries = await db.execute_fetchall(
+        "SELECT strengths, weaknesses, overall "
+        "FROM session_summaries "
+        "WHERE user_id = ? "
+        f"ORDER BY created_at DESC LIMIT {limit}",
+        (user_id,),
+    )
+
+    # Fetch recent review summaries
+    review_summaries = await db.execute_fetchall(
+        "SELECT practiced, notes "
+        "FROM review_summaries "
+        "WHERE user_id = ? "
+        f"ORDER BY created_at DESC LIMIT {limit}",
+        (user_id,),
+    )
+
+    user_msg_parts = [
+        f"Current profile: {json.dumps(profile['profile_data'], ensure_ascii=False)}",
+        f"Current level: {profile['level'] or 'Not evaluated'}",
+        "",
+    ]
+
+    if session_summaries:
+        user_msg_parts.append("Recent conversation session summaries (most recent first):")
+        for i, ss in enumerate(session_summaries, 1):
+            user_msg_parts.append(f"  Session {i}:")
+            user_msg_parts.append(f"    Strengths: {ss['strengths']}")
+            user_msg_parts.append(f"    Weaknesses: {ss['weaknesses']}")
+            user_msg_parts.append(f"    Overall: {ss['overall']}")
+    else:
+        user_msg_parts.append("No conversation sessions yet.")
+
+    if review_summaries:
+        user_msg_parts.append("\nRecent review session summaries (most recent first):")
+        for i, rs in enumerate(review_summaries, 1):
+            user_msg_parts.append(f"  Review {i}:")
+            user_msg_parts.append(f"    Practiced: {rs['practiced']}")
+            user_msg_parts.append(f"    Notes: {rs['notes']}")
+    else:
+        user_msg_parts.append("\nNo review sessions yet.")
+
+    result = await chat_json(PROGRESS_NOTES_SYSTEM_PROMPT, "\n".join(user_msg_parts))
+
+    progress_notes = result.get("progress_notes", "")
+
+    # Update DB — merge progress_notes into profile_data
+    now = datetime.now(timezone.utc).isoformat()
+    profile["profile_data"]["progress_notes"] = progress_notes
+    new_data = json.dumps(profile["profile_data"], ensure_ascii=False)
+
+    await db.execute(
+        "UPDATE user_profiles SET profile_data = ?, updated_at = ? WHERE user_id = ?",
+        (new_data, now, user_id),
+    )
+    await db.commit()
+
+    log.info("User %s progress notes updated", user_id)
+
+    return {
+        "user_id": user_id,
+        "level": profile["level"],
         "profile_data": profile["profile_data"],
         "updated_at": now,
     }

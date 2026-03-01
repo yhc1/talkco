@@ -4,6 +4,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+from config import settings
 from constants import SessionMode, SessionStatus, DIMENSION_LABELS
 from db import get_db
 from profile import get_or_create_profile
@@ -32,10 +33,10 @@ def _build_weak_points_for_review(profile: dict) -> str:
         if not patterns:
             continue
         # Take top 3 patterns per dimension
-        for p in patterns[:3]:
+        for p in patterns[:settings.MAX_PATTERNS_FOR_REVIEW]:
             if isinstance(p, dict):
                 lines.append(f"- [{label}] {p['pattern']}")
-                for ex in p.get("examples", [])[:3]:
+                for ex in p.get("examples", [])[:settings.MAX_EXAMPLES_FOR_REVIEW]:
                     lines.append(f"  Wrong: \"{ex['wrong']}\" → Correct: \"{ex['correct']}\"")
             elif isinstance(p, str):
                 lines.append(f"- [{label}] {p}")
@@ -49,14 +50,13 @@ async def create_session(user_id: str, topic: dict | None = None, mode: str = Se
     topic_id = topic.get("id") if topic else None
     history_summaries: list[str] = []
     # Query same-topic chat history for conversation mode
-    # TODO: Extract retrieve chat history number to a configuration file.
     if mode == SessionMode.CONVERSATION and topic_id:
         db = await get_db()
         rows = await db.execute_fetchall(
             "SELECT cs.summary FROM chat_summaries cs "
             "JOIN sessions s ON cs.session_id = s.id "
             "WHERE s.user_id = ? AND cs.topic_id = ? "
-            "ORDER BY s.started_at DESC LIMIT 5",
+            f"ORDER BY s.started_at DESC LIMIT {settings.CONVERSATION_HISTORY_LIMIT}",
             (user_id, topic_id),
         )
         history_summaries = [r["summary"] for r in rows]
@@ -67,7 +67,7 @@ async def create_session(user_id: str, topic: dict | None = None, mode: str = Se
         rows = await db.execute_fetchall(
             "SELECT rs.notes FROM review_summaries rs "
             "JOIN sessions s ON rs.session_id = s.id "
-            "WHERE s.user_id = ? ORDER BY rs.created_at DESC LIMIT 5",
+            f"WHERE s.user_id = ? ORDER BY rs.created_at DESC LIMIT {settings.REVIEW_HISTORY_LIMIT}",
             (user_id,),
         )
         review_history = [r["notes"] for r in rows] or None

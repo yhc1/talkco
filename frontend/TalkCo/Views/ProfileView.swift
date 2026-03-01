@@ -49,9 +49,9 @@ struct ProfileView: View {
                         if vm.isEvaluating {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("評估中...")
+                            Text("更新中...")
                         } else {
-                            Text("重新評估程度")
+                            Text("更新學習報告")
                         }
                         Spacer()
                     }
@@ -59,12 +59,16 @@ struct ProfileView: View {
                 .disabled(vm.isEvaluating)
             }
 
-            // Progress summary
+            // Progress notes
             if !profile.profileData.progressNotes.isEmpty {
-                Section("學習總覽") {
-                    Text(profile.profileData.progressNotes)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("學習總覽")
+                            .font(.headline)
+                        Text(profile.profileData.progressNotes)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
