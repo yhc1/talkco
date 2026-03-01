@@ -14,6 +14,15 @@ Python Backend (FastAPI)
     → OpenAI Chat Completions (GPT-4o): review analysis, corrections, session review, profile update, chat summary
 ```
 
+### Constants
+
+- `constants.py` — Loads `../shared/constants.json` and defines `StrEnum` types:
+  - `SessionMode` (`CONVERSATION`, `REVIEW`)
+  - `SessionStatus` (`ACTIVE`, `REVIEWING`, `COMPLETING`, `COMPLETED`, `ENDED`)
+  - `IssueDimension` (`GRAMMAR`, `NATURALNESS`, `SENTENCE_STRUCTURE`)
+  - `DIMENSION_LABELS` dict — `en`/`zh` labels per dimension
+  - Always use these enums for mode/status/dimension comparisons, never raw strings
+
 ### Providers
 
 - `providers/openai_s2s.py` — OpenAI Realtime S2S via `openai` SDK

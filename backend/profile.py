@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
+from constants import IssueDimension
 from db import get_db
 from providers.openai_chat import chat_json
 
@@ -93,9 +94,9 @@ async def get_or_create_profile(user_id: str) -> dict:
     default_data = {
         "learned_expressions": [],
         "weak_points": {
-            "grammar": [],
-            "naturalness": [],
-            "sentence_structure": [],
+            IssueDimension.GRAMMAR: [],
+            IssueDimension.NATURALNESS: [],
+            IssueDimension.SENTENCE_STRUCTURE: [],
         },
         "progress_notes": "",
         "common_errors": [],

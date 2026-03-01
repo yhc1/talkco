@@ -4,46 +4,18 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+from constants import SessionMode, SessionStatus, DIMENSION_LABELS
 from db import get_db
 from profile import get_or_create_profile
 from providers.openai_s2s import RealtimeSession
-from review import generate_review
+from profile import update_profile_after_session
+from review import generate_review, generate_review_summary
 
 log = logging.getLogger(__name__)
 
 _sessions: dict[str, RealtimeSession] = {}
 _session_user_ids: dict[str, str] = {}
 _session_modes: dict[str, str] = {}
-
-
-def _build_learner_summary(profile: dict) -> str:
-    """Build a brief learner summary string from profile data."""
-    parts = []
-    level = profile.get("level")
-    if level:
-        parts.append(f"Level: {level}")
-    data = profile.get("profile_data")
-
-    personal_facts = data.get("personal_facts", [])
-    if personal_facts:
-        parts.append(f"Background: {', '.join(personal_facts)}")
-
-    weak_points = data.get("weak_points", {})
-    if isinstance(weak_points, dict):
-        weak_items = []
-        for dim, patterns in weak_points.items():
-            if patterns:
-                if isinstance(patterns[0], dict):
-                    names = [p["pattern"] for p in patterns[:2]]
-                    weak_items.append(f"{dim}: {', '.join(names)}")
-                elif isinstance(patterns[0], str):
-                    weak_items.append(f"{dim}: {', '.join(patterns[:2])}")
-        if weak_items:
-            parts.append(f"Weak points: {'; '.join(weak_items)}")
-    elif isinstance(weak_points, list) and weak_points:
-        parts.append(f"Weak points: {', '.join(str(p) for p in weak_points[:4])}")
-
-    return ". ".join(parts)
 
 
 def _build_weak_points_for_review(profile: dict) -> str:
@@ -53,14 +25,9 @@ def _build_weak_points_for_review(profile: dict) -> str:
     if not isinstance(weak_points, dict):
         return ""
 
-    dim_labels = {
-        "grammar": "Grammar",
-        "naturalness": "Naturalness",
-        "sentence_structure": "Sentence Structure",
-    }
-
     lines = []
-    for dim, label in dim_labels.items():
+    for dim, labels in DIMENSION_LABELS.items():
+        label = labels["en"]
         patterns = weak_points.get(dim, [])
         if not patterns:
             continue
@@ -76,29 +43,14 @@ def _build_weak_points_for_review(profile: dict) -> str:
     return "\n".join(lines) if lines else ""
 
 
-async def create_session(user_id: str, topic: dict | None = None, mode: str = "conversation") -> dict:
+async def create_session(user_id: str, topic: dict | None = None, mode: str = SessionMode.CONVERSATION) -> dict:
     session_id = str(uuid.uuid4())
-
-    # Fetch learner profile for context
     profile = await get_or_create_profile(user_id)
-    learner_summary = _build_learner_summary(profile)
-
-    topic_str = "free conversation"
-    weak_points_detail = ""
-    topic_id = None
+    topic_id = topic.get("id") if topic else None
     history_summaries: list[str] = []
-
-    if mode == "review":
-        weak_points_detail = _build_weak_points_for_review(profile)
-        topic_str = "weak point review"
-    elif topic:
-        topic_id = topic.get("id")
-        topic_label = topic.get("label_en", "free conversation")
-        prompt_hint = topic.get("prompt_hint", "")
-        topic_str = f"{topic_label} — {prompt_hint}" if prompt_hint else topic_label
-
     # Query same-topic chat history for conversation mode
-    if mode == "conversation" and topic_id:
+    # TODO: Extract retrieve chat history number to a configuration file.
+    if mode == SessionMode.CONVERSATION and topic_id:
         db = await get_db()
         rows = await db.execute_fetchall(
             "SELECT cs.summary FROM chat_summaries cs "
@@ -108,21 +60,22 @@ async def create_session(user_id: str, topic: dict | None = None, mode: str = "c
             (user_id, topic_id),
         )
         history_summaries = [r["summary"] for r in rows]
-        if history_summaries:
-            log.info("Found %d prior chat summaries for topic %s", len(history_summaries), topic_id)
 
-    log.info(
-        "Session context for user=%s: level=%s, mode=%s, learner_summary=%s",
-        user_id,
-        profile.get("level", "unknown"),
-        mode,
-        learner_summary,
-    )
+    review_history: list[str] | None = None
+    if mode == SessionMode.REVIEW:
+        db = await get_db()
+        rows = await db.execute_fetchall(
+            "SELECT rs.notes FROM review_summaries rs "
+            "JOIN sessions s ON rs.session_id = s.id "
+            "WHERE s.user_id = ? ORDER BY rs.created_at DESC LIMIT 5",
+            (user_id,),
+        )
+        review_history = [r["notes"] for r in rows] or None
 
     session = RealtimeSession(
-        session_id, topic=topic_str, learner_summary=learner_summary,
-        mode=mode, weak_points_detail=weak_points_detail,
-        prior_topic_summaries=history_summaries or None,
+        session_id, mode=mode, profile=profile, topic=topic.get("label_en") if topic else None,
+        conversation_history_summary=history_summaries or None,
+        review_history=review_history,
     )
     _sessions[session_id] = session
     _session_user_ids[session_id] = user_id
@@ -134,7 +87,7 @@ async def create_session(user_id: str, topic: dict | None = None, mode: str = "c
     db = await get_db()
     await db.execute(
         "INSERT INTO sessions (id, user_id, started_at, status, mode, topic_id) VALUES (?, ?, ?, ?, ?, ?)",
-        (session_id, user_id, now, "active", mode, topic_id),
+        (session_id, user_id, now, SessionStatus.ACTIVE, mode, topic_id),
     )
     await db.commit()
 
@@ -165,32 +118,37 @@ def get_session_user_id(session_id: str) -> str | None:
 
 
 def get_session_mode(session_id: str) -> str:
-    return _session_modes.get(session_id, "conversation")
+    return _session_modes.get(session_id, SessionMode.CONVERSATION)
 
 
 async def delete_session(session_id: str) -> dict | None:
     session = _sessions.pop(session_id, None)
     if session is None:
         return None
-    mode = _session_modes.pop(session_id, "conversation")
+    mode = _session_modes.pop(session_id, SessionMode.CONVERSATION)
     await session.close()
 
     now = datetime.now(timezone.utc).isoformat()
     db = await get_db()
 
-    if mode == "review":
+    if mode == SessionMode.REVIEW:
         # Review mode: skip AI marks generation, just mark as ended
         await db.execute(
             "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
-            ("ended", now, session_id),
+            (SessionStatus.ENDED, now, session_id),
         )
         await db.commit()
         log.info("Review session %s ended (no review generation)", session_id)
-        return {"session_id": session_id, "status": "ended", "mode": mode}
+
+        user_id = _session_user_ids.pop(session_id, None)
+        if user_id:
+            asyncio.create_task(_finalize_review(session_id, user_id))
+
+        return {"session_id": session_id, "status": SessionStatus.ENDED, "mode": mode}
 
     await db.execute(
         "UPDATE sessions SET status = ?, ended_at = ? WHERE id = ?",
-        ("reviewing", now, session_id),
+        (SessionStatus.REVIEWING, now, session_id),
     )
     await db.commit()
 
@@ -198,7 +156,7 @@ async def delete_session(session_id: str) -> dict | None:
     asyncio.create_task(_run_review(session_id))
 
     log.info("Session %s ended, review generation started", session_id)
-    return {"session_id": session_id, "status": "reviewing", "mode": mode}
+    return {"session_id": session_id, "status": SessionStatus.REVIEWING, "mode": mode}
 
 
 async def _run_review(session_id: str) -> None:
@@ -207,3 +165,15 @@ async def _run_review(session_id: str) -> None:
         log.info("Review generated for session %s", session_id)
     except Exception as e:
         log.error("Failed to generate review for session %s: %s", session_id, e)
+
+
+async def _finalize_review(session_id: str, user_id: str) -> None:
+    """Background task: generate review summary and update profile after review session."""
+    try:
+        await asyncio.gather(
+            generate_review_summary(session_id, user_id),
+            update_profile_after_session(user_id, session_id),
+        )
+        log.info("Review session %s finalized for user %s", session_id, user_id)
+    except Exception as e:
+        log.error("Failed to finalize review session %s: %s", session_id, e)

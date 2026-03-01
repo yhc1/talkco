@@ -13,13 +13,13 @@ final class ConversationViewModel {
     var isEnded = false
 
     private let topic: Topic?
-    private let mode: String
+    private let mode: SessionMode
     private(set) var sessionId: String?
     private let api: any APIClientProtocol
     private let recorder: AudioRecording
     private let player: AudioPlaying
 
-    init(topic: Topic? = nil, mode: String = "conversation", api: any APIClientProtocol = LiveAPIClient(), recorder: AudioRecording = AudioRecorder(), player: AudioPlaying = AudioPlayer()) {
+    init(topic: Topic? = nil, mode: SessionMode = .conversation, api: any APIClientProtocol = LiveAPIClient(), recorder: AudioRecording = AudioRecorder(), player: AudioPlaying = AudioPlayer()) {
         self.topic = topic
         self.mode = mode
         self.api = api
@@ -244,7 +244,7 @@ final class ConversationViewModel {
         do {
             let resp: DeleteSessionResponse = try await api.delete("/sessions/\(sessionId)")
             // Review mode: no review flow needed
-            if resp.mode == "review" {
+            if resp.mode == SessionMode.review.rawValue {
                 return nil
             }
             return hasUserMessages ? sessionId : nil
@@ -265,7 +265,7 @@ final class ConversationViewModel {
 private struct CreateSessionBody: Encodable, Sendable {
     let userId: String
     let topicId: String?
-    let mode: String
+    let mode: SessionMode
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"

@@ -62,7 +62,7 @@ struct TopicSelectionView: View {
             .navigationTitle("練習主題")
             .navigationDestination(for: String.self) { value in
                 if value == "__review__" {
-                    ConversationView(mode: "review", popToRoot: { navigationPath = NavigationPath() })
+                    ConversationView(mode: .review, popToRoot: { navigationPath = NavigationPath() })
                 } else if let topic = Topic.all.first(where: { $0.id == value }) {
                     ConversationView(topic: topic, popToRoot: { navigationPath = NavigationPath() })
                 }

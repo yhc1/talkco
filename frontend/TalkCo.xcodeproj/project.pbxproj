@@ -46,6 +46,8 @@
 		T200000D000000000000AA0D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000D000000000000BB0D /* TestFixtures.swift */; };
 		T200000E000000000000AA0E /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000E000000000000BB0E /* ConfigTests.swift */; };
 		S20001FF00000001SSSS0001 /* topics.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000001SSSS0001 /* topics.json */; };
+		S20001FF00000002SSSS0002 /* constants.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000002SSSS0002 /* constants.json */; };
+		D10001AA00000001DD000001 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10001BB00000001DD000001 /* Constants.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +102,8 @@
 		T100000E000000000000BB0E /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 		T4000003000000000000CC03 /* TalkCoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalkCoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		S10001FF00000001SSSS0001 /* topics.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = topics.json; path = ../shared/topics.json; sourceTree = "<group>"; };
+		S10001FF00000002SSSS0002 /* constants.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = constants.json; path = ../shared/constants.json; sourceTree = "<group>"; };
+		D10001BB00000001DD000001 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -166,6 +170,7 @@
 				43589D0AA43AD60B6D8508C0 /* TalkCo */,
 				T3000001000000000000DD01 /* TalkCoTests */,
 				36032F7FA5ECEB3F04FD5898 /* Products */,
+				S10001FF00000002SSSS0002 /* constants.json */,
 				S10001FF00000001SSSS0001 /* topics.json */,
 			);
 			sourceTree = "<group>";
@@ -175,6 +180,7 @@
 			children = (
 				B10001BB00000001BBBB0001 /* AIMark.swift */,
 				75C15FB46C2B9FAB0CDB3E6A /* ChatMessage.swift */,
+				D10001BB00000001DD000001 /* Constants.swift */,
 				B10001BB00000002BBBB0002 /* Correction.swift */,
 				B10001BB00000003BBBB0003 /* Segment.swift */,
 				180A160A0C71011FE46EF91C /* Session.swift */,
@@ -317,6 +323,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				S20001FF00000002SSSS0002 /* constants.json in Resources */,
 				S20001FF00000001SSSS0001 /* topics.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -332,6 +339,7 @@
 				3467FACC7EE854A0945F36B6 /* AudioPlayer.swift in Sources */,
 				02AB9F8C14D35AA6671DCCED /* AudioRecorder.swift in Sources */,
 				5929752194F8F619DBFD0261 /* ChatMessage.swift in Sources */,
+				D10001AA00000001DD000001 /* Constants.swift in Sources */,
 				5072F3E6931BA379253BD187 /* Config.swift in Sources */,
 				F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */,
 				1FFCBF9E486419B65BCDB81B /* ConversationViewModel.swift in Sources */,

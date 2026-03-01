@@ -49,6 +49,18 @@ Pop-to-root: `TopicSelectionView` owns a `@State NavigationPath`, passes `popToR
 
 ---
 
+## Constants & Enums
+
+`Constants.swift` loads `constants.json` (from `shared/constants.json` via bundle) and defines typed enums:
+- `SessionMode` — `.conversation`, `.review` (used in `ConversationView`, `ConversationViewModel`, `CreateSessionBody`)
+- `SessionStatus` — `.active`, `.reviewing`, `.completing`, `.completed`, `.ended` (used in `ReviewViewModel` for polling)
+- `IssueDimension` — `.grammar`, `.naturalness`, `.sentenceStructure` (used in `SegmentCard`, `SessionSummaryView`)
+  - Computed properties: `displayName` (zh label), `color` (SwiftUI Color)
+
+Always use these enums for mode/status/dimension comparisons. Raw strings are acceptable only in JSON test fixtures.
+
+---
+
 ## Key Implementation Details
 
 **Audio format**: PCM16, 24kHz, mono. Recording wraps raw PCM in WAV headers. Playback converts Int16 → Float32.

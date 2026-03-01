@@ -36,3 +36,20 @@ flowchart LR
 
 * Each new conversation must bring relevant chat history into context. The AI needs to remember previous conversation topics. Relevant chat history is defined as history from conversations on the same topic.
 * After each conversation, the app needs to record the user's incorrect sentences, as well as a summary of the chat including the topic.
+
+---
+
+## Shared Constants & Enums
+
+`shared/constants.json` is the **single source of truth** for domain constants shared between frontend and backend. Both sides load this file and generate typed enums from it.
+
+**Current constants:**
+- `session_modes` — `conversation`, `review`
+- `session_statuses` — `active`, `reviewing`, `completing`, `completed`, `ended`
+- `issue_dimensions` — `grammar`, `naturalness`, `sentence_structure` (with `en`/`zh` labels and color)
+
+**Convention:**
+- Never use raw strings for mode/status/dimension comparisons in logic code. Always use the corresponding enum.
+- Raw strings are acceptable in: LLM prompt text, JSON test fixtures, SQL comments, and JSON schema descriptions.
+- When adding a new constant category, add it to `shared/constants.json` first, then generate enums in both `backend/constants.py` (Python `StrEnum`) and `frontend/TalkCo/Models/Constants.swift` (Swift `enum: String, Codable`).
+- Follow the same pattern as `shared/topics.json` — backend loads via `pathlib`, frontend loads via `Bundle.main.url`.

@@ -1,4 +1,4 @@
-"""Tests for review.py — generate_review, generate_correction, generate_session_review."""
+"""Tests for review.py — generate_review, generate_correction, generate_session_review, generate_review_summary."""
 
 import json
 import sys
@@ -282,3 +282,63 @@ async def test_generate_chat_summary_no_segments(mock_chat):
 
     assert result["summary"] == ""
     mock_chat.assert_not_called()
+
+
+# --- generate_review_summary tests ---
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_summary_success(mock_chat):
+    """Review summary is generated and stored in review_summaries table."""
+    mock_chat.return_value = {
+        "practiced": [
+            {
+                "dimension": "grammar",
+                "patterns": ["過去式混用為現在式"],
+                "performance": "improved",
+            }
+        ],
+        "notes": "本次練習了過去式的使用，學習者大部分能正確回答，表現有進步。",
+    }
+
+    await _insert_session_and_segments(session_id="r1", user_id="u1")
+
+    result = await review.generate_review_summary("r1", "u1")
+
+    assert result is not None
+    assert len(result["practiced"]) == 1
+    assert result["practiced"][0]["dimension"] == "grammar"
+    assert result["practiced"][0]["performance"] == "improved"
+    assert "過去式" in result["notes"]
+    mock_chat.assert_called_once()
+
+    # Verify DB write
+    db = await get_db()
+    rows = await db.execute_fetchall("SELECT * FROM review_summaries WHERE session_id = 'r1'")
+    assert len(rows) == 1
+    assert rows[0]["user_id"] == "u1"
+    assert "過去式" in rows[0]["notes"]
+    practiced_db = json.loads(rows[0]["practiced"])
+    assert practiced_db[0]["dimension"] == "grammar"
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_review_summary_no_segments(mock_chat):
+    """No segments → return None, no LLM call."""
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT INTO sessions (id, user_id, started_at, status, mode) VALUES (?, ?, ?, ?, ?)",
+        ("empty_review", "u1", now, "ended", "review"),
+    )
+    await db.commit()
+
+    result = await review.generate_review_summary("empty_review", "u1")
+
+    assert result is None
+    mock_chat.assert_not_called()
+
+    # Verify nothing written to DB
+    rows = await db.execute_fetchall("SELECT * FROM review_summaries WHERE session_id = 'empty_review'")
+    assert len(rows) == 0

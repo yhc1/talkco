@@ -120,21 +120,13 @@ struct SegmentCard: View {
     }
 
     private func color(for issueType: String) -> Color {
-        switch issueType {
-        case "grammar": .red
-        case "naturalness": .orange
-        case "sentence_structure": .purple
-        default: .gray
-        }
+        guard let dim = IssueDimension(rawValue: issueType) else { return .gray }
+        return dim.color
     }
 
     private func displayName(for issueType: String) -> String {
-        switch issueType {
-        case "grammar": "文法"
-        case "naturalness": "自然度"
-        case "sentence_structure": "句構"
-        default: issueType
-        }
+        guard let dim = IssueDimension(rawValue: issueType) else { return issueType }
+        return dim.displayName
     }
 }
 

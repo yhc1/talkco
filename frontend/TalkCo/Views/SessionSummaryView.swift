@@ -76,20 +76,12 @@ struct SessionSummaryView: View {
     }
 
     private func weaknessColor(for key: String) -> Color {
-        switch key {
-        case "grammar": .red
-        case "naturalness": .orange
-        case "sentence_structure": .purple
-        default: .gray
-        }
+        guard let dim = IssueDimension(rawValue: key) else { return .gray }
+        return dim.color
     }
 
     private func weaknessDisplayName(for key: String) -> String {
-        switch key {
-        case "grammar": "文法"
-        case "naturalness": "自然度"
-        case "sentence_structure": "句構"
-        default: key
-        }
+        guard let dim = IssueDimension(rawValue: key) else { return key }
+        return dim.displayName
     }
 }

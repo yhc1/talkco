@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS chat_summaries (
     summary    TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS review_summaries (
+    session_id   TEXT PRIMARY KEY REFERENCES sessions(id),
+    user_id      TEXT NOT NULL,
+    practiced    TEXT NOT NULL,
+    notes        TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
 """
 
 

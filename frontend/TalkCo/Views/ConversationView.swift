@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ConversationView: View {
     let topic: Topic?
-    let mode: String
+    let mode: SessionMode
     let popToRoot: () -> Void
     @State private var vm: ConversationViewModel
     @State private var navigateToReview: String?
@@ -10,7 +10,7 @@ struct ConversationView: View {
     @State private var showTextInput = false
     @FocusState private var isTextFieldFocused: Bool
 
-    init(topic: Topic? = nil, mode: String = "conversation", popToRoot: @escaping () -> Void) {
+    init(topic: Topic? = nil, mode: SessionMode = .conversation, popToRoot: @escaping () -> Void) {
         self.topic = topic
         self.mode = mode
         self.popToRoot = popToRoot
@@ -44,12 +44,12 @@ struct ConversationView: View {
             // Bottom bar
             bottomBar
         }
-        .navigationTitle(mode == "review" ? "弱點複習" : (topic?.labelZh ?? "對話"))
+        .navigationTitle(mode == .review ? "弱點複習" : (topic?.labelZh ?? "對話"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button(mode == "review" ? "結束複習" : "結束對話") {
+                Button(mode == .review ? "結束複習" : "結束對話") {
                     Task {
                         if let sid = await vm.endConversation() {
                             navigateToReview = sid

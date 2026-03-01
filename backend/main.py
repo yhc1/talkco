@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import sessions
+from constants import SessionMode, SessionStatus
 from db import init_db, close_db, get_db
 from profile import get_or_create_profile, update_profile_after_session, evaluate_level, compute_needs_review
 from review import generate_correction, generate_session_review, generate_chat_summary
@@ -39,7 +40,7 @@ app = FastAPI(title="TalkCo Backend", lifespan=lifespan)
 class CreateSessionRequest(BaseModel):
     user_id: str
     topic_id: str | None = None
-    mode: str = "conversation"
+    mode: str = SessionMode.CONVERSATION
 
 
 class CorrectionRequest(BaseModel):
@@ -56,11 +57,11 @@ async def list_topics():
 
 @app.post("/sessions")
 async def create_session(req: CreateSessionRequest):
-    if req.mode not in ("conversation", "review"):
+    if req.mode not in SessionMode:
         raise HTTPException(status_code=400, detail=f"Invalid mode: {req.mode}")
 
     topic = None
-    if req.mode == "conversation":
+    if req.mode == SessionMode.CONVERSATION:
         if not req.topic_id:
             raise HTTPException(status_code=400, detail="topic_id is required for conversation mode")
         topic = get_topic_by_id(req.topic_id)
@@ -261,7 +262,7 @@ async def create_correction(session_id: str, req: CorrectionRequest):
     if not session_rows:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session_rows[0]["status"] not in ("reviewing", "completed"):
+    if session_rows[0]["status"] not in (SessionStatus.REVIEWING, SessionStatus.COMPLETED):
         raise HTTPException(status_code=400, detail="Session is not in review state")
 
     # Verify segment belongs to session
@@ -289,7 +290,7 @@ async def end_session(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
     session = session_rows[0]
-    if session["status"] == "completed":
+    if session["status"] == SessionStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Session already completed")
 
     # Check if there are any segments to review
@@ -300,15 +301,15 @@ async def end_session(session_id: str):
         # No conversation happened — mark completed immediately, no review needed
         await db.execute(
             "UPDATE sessions SET status = ? WHERE id = ?",
-            ("completed", session_id),
+            (SessionStatus.COMPLETED, session_id),
         )
         await db.commit()
-        return {"session_id": session_id, "status": "completed"}
+        return {"session_id": session_id, "status": SessionStatus.COMPLETED}
 
     # Mark as completing immediately
     await db.execute(
         "UPDATE sessions SET status = ? WHERE id = ?",
-        ("completing", session_id),
+        (SessionStatus.COMPLETING, session_id),
     )
     await db.commit()
 
@@ -317,7 +318,7 @@ async def end_session(session_id: str):
 
     return {
         "session_id": session_id,
-        "status": "completing",
+        "status": SessionStatus.COMPLETING,
     }
 
 
@@ -355,7 +356,7 @@ async def _finalize_session(session_id: str, user_id: str) -> None:
             db = await get_db()
             await db.execute(
                 "UPDATE sessions SET status = ? WHERE id = ?",
-                ("completed", session_id),
+                (SessionStatus.COMPLETED, session_id),
             )
             await db.commit()
             log.info("Session %s marked completed", session_id)

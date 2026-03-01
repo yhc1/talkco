@@ -69,6 +69,35 @@ overall: 2-3 sentence summary in Traditional Chinese (繁體中文).\
 """
 
 
+REVIEW_SUMMARY_SYSTEM_PROMPT = """\
+You are an English language learning assessment system for Mandarin Chinese speakers.
+
+Analyze the review-mode conversation transcript below. The learner was practicing their weak points with a teacher.
+
+Your task:
+1. Identify which weak points were practiced (dimension + pattern).
+2. Assess the learner's performance on each pattern:
+   - "improved": learner mostly got it right after guidance
+   - "still_struggling": learner kept making the same mistake
+   - "mixed": some correct, some incorrect attempts
+
+Respond as JSON:
+{
+  "practiced": [
+    {
+      "dimension": "grammar",
+      "patterns": ["過去式混用為現在式"],
+      "performance": "improved"
+    }
+  ],
+  "notes": "2-3 sentence summary in Traditional Chinese (繁體中文) describing what was practiced and overall performance."
+}
+
+Dimensions: grammar, naturalness, sentence_structure.
+notes must be in 繁體中文, 2-3 sentences.\
+"""
+
+
 CHAT_SUMMARY_SYSTEM_PROMPT = """\
 Summarize the conversation content briefly (2-3 sentences in English).
 Focus on: what topic was discussed, what key points were covered, what opinions or experiences the learner shared.
@@ -286,3 +315,42 @@ async def generate_session_review(session_id: str, user_id: str) -> dict | None:
         "weaknesses": weaknesses,
         "overall": overall,
     }
+
+
+async def generate_review_summary(session_id: str, user_id: str) -> dict | None:
+    """Generate a structured summary of a review session and store in review_summaries.
+    Returns None if no segments exist."""
+    db = await get_db()
+
+    rows = await db.execute_fetchall(
+        "SELECT turn_index, user_text, ai_text FROM segments "
+        "WHERE session_id = ? ORDER BY turn_index",
+        (session_id,),
+    )
+
+    if not rows:
+        log.warning("No segments for review session %s, skipping review summary", session_id)
+        return None
+
+    transcript_lines = []
+    for row in rows:
+        transcript_lines.append(f"Turn {row['turn_index']}:")
+        transcript_lines.append(f"  User: {row['user_text']}")
+        transcript_lines.append(f"  AI: {row['ai_text']}")
+    transcript = "\n".join(transcript_lines)
+
+    result = await chat_json(REVIEW_SUMMARY_SYSTEM_PROMPT, transcript)
+
+    practiced = result.get("practiced", [])
+    notes = result.get("notes", "")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "INSERT OR REPLACE INTO review_summaries (session_id, user_id, practiced, notes, created_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (session_id, user_id, json.dumps(practiced, ensure_ascii=False), notes, now),
+    )
+    await db.commit()
+    log.info("Review summary saved for session %s", session_id)
+
+    return {"practiced": practiced, "notes": notes}

@@ -4,11 +4,13 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from os import system
 from typing import AsyncGenerator
 
 from openai import AsyncOpenAI
 
 from config import settings
+from constants import SessionMode
 from db import get_db
 from tools import TOOL_DEFINITIONS, execute_tool
 
@@ -16,93 +18,66 @@ log = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = """\
 You are a friendly, patient English conversation partner for a Mandarin Chinese native speaker.
-Your goals:
-- Help the learner practice natural, real-life English conversation.
-- Adapt continuously to the learner’s level and recent performance.
-- Keep the learner relaxed and motivated.
-Conversation style:
-- Speak ONLY in English unless the user explicitly asks for Chinese.
-- Match the learner’s level: if they use simple sentences, keep yours simple; if they are advanced, you can be more complex.
-- Keep each turn concise: usually 1–3 sentences.
-- Use natural, idiomatic expressions that a native speaker would actually say in everyday conversation.
-- Ask clear, engaging follow-up questions to keep the conversation going, but don’t overwhelm the learner.
-Error handling:
-- Do NOT explicitly correct grammar or word choice during the conversation.
-- Instead, always respond with natural, correct English so the learner can absorb patterns implicitly.
-- If the learner directly asks for an explanation or correction, you may briefly explain in simple English.
-Context & tools:
-- You are chatting about the topic and context provided separately (e.g. today’s conversation topic and learner profile).
-- If the learner asks about news or current events, and you need up‑to‑date information, use the `search_news` tool instead of guessing.
-Overall:
-- Prioritize fluency, confidence, and naturalness over dense teaching.
-- Avoid long lectures; stay conversational and interactive.
+
+**Core behavior:**
+- Speak ONLY in English unless explicitly asked for Chinese.
+- Keep each turn concise (1–2 sentences) with a natural follow-up question.
+- Match the learner's level, the user level is provided below in CEFR format (A1, A2, B1, B2, C1, C2).
+- Use natural, idiomatic English a native speaker would say in everyday conversation.
+- Prioritize fluency and confidence over teaching. No lectures.
+
+**Error handling:**
+- Don't explicitly correct the user's mid-conversation, unless they ask for feedback. Focus on keeping the conversation flowing.
+
+**Learner profile:**
+{{user_profile}}
+
+**Today's topic:**
+{{conversation_topic}}
+
+**Recent conversation summary:**
+{{conversation_history_summary}}
+
+If the learner asks about current events, use the `search_news` tool instead of guessing.
 """
 
 
 REVIEW_MODE_SYSTEM_PROMPT = """\
-You are a dedicated English teacher conducting targeted practice for a Mandarin Chinese native speaker.
-Your goals:
-- Design exercises based on the learner's specific weak points provided below.
-- Create realistic scenarios that require the learner to use correct grammar/natural expression/sentence patterns.
-Interaction style:
-- After each learner response, give immediate feedback:
-  - If correct: brief encouragement (1 sentence), then present the next exercise.
-  - If incorrect: correct the mistake, briefly explain why (1-2 sentences), then give a similar exercise.
-- If the learner's response is unclear, off-topic, seems unrelated to the exercise, or is just noise/silence, \
-do NOT guess what they meant. Instead, gently ask them to try again. \
-For example: "I didn't quite catch that. Could you try answering the question again?"
+You are a patient English teacher conducting targeted practice for a Mandarin Chinese native speaker.
+
+**Core behavior:**
+- Design exercises based on the learner's weak points provided below.
+- Use varied, realistic scenarios to practice the same grammar pattern.
 - Speak ONLY in English unless the learner explicitly asks for a Chinese explanation.
-- Keep exercises focused and varied — use different scenarios for the same pattern.
-- Maintain an encouraging, patient tone throughout.
-- Keep each turn concise: 2-4 sentences maximum.
+- Keep each turn concise (2–4 sentences). Maintain an encouraging tone throughout.
+
+**Feedback rules:**
+- Correct response: one sentence of encouragement, then next exercise.
+- Incorrect response: correct the mistake, briefly explain why (1–2 sentences), then give a similar exercise.
+- Unclear / off-topic / no response: do NOT guess. Ask them to try again.
+  - e.g. "I didn't quite catch that. Could you try answering the question again?"
+
+**Learner's weak points:**
+{{weak_points}}
+
+**Past review history:**
+{{past_review_history}}
 """
 
-
-def _build_system_prompt(topic: str, learner_summary: str, mode: str = "conversation",
-                         weak_points_detail: str = "",
-                         prior_topic_summaries: list[str] | None = None) -> str:
-    """Build a dynamic system prompt with topic and learner context."""
-    if mode == "review":
-        parts = [REVIEW_MODE_SYSTEM_PROMPT]
-        if weak_points_detail:
-            parts.append(f"\nLearner's weak points to practice:\n{weak_points_detail}")
-        if learner_summary:
-            parts.append(f"\nLearner context: {learner_summary}")
-        parts.append(
-            "\nStart by briefly greeting the learner, then immediately present the first exercise. "
-            "Keep the greeting to 1 sentence."
-        )
-        return "\n".join(parts)
-
-    parts = [BASE_SYSTEM_PROMPT]
-    parts.append(f"\nToday's conversation topic: {topic}")
-    if learner_summary:
-        parts.append(f"\nLearner context: {learner_summary}")
-    if prior_topic_summaries:
-        summaries_text = "\n".join(f"- {s}" for s in prior_topic_summaries)
-        parts.append(
-            f"\nPrevious conversations on this topic:\n{summaries_text}\n"
-            "Use this context to avoid repeating topics and build on what was discussed before."
-        )
-    parts.append(
-        "\nStart the conversation by greeting the learner and naturally introducing the topic. "
-        "Keep the greeting warm but brief (1-2 sentences)."
-    )
-    return "\n".join(parts)
 
 
 class RealtimeSession:
     """Manages one persistent WebSocket connection to OpenAI Realtime API."""
 
-    def __init__(self, session_id: str, topic: str = "free conversation", learner_summary: str = "",
-                 mode: str = "conversation", weak_points_detail: str = "",
-                 prior_topic_summaries: list[str] | None = None):
+    def __init__(self, session_id: str, mode, profile: dict, topic,
+                 conversation_history_summary: list[str] | None = None,
+                 review_history: list[str] | None = None):
         self.session_id = session_id
         self._topic = topic
-        self._learner_summary = learner_summary
         self._mode = mode
-        self._weak_points_detail = weak_points_detail
-        self._prior_topic_summaries = prior_topic_summaries
+        self._profile = profile
+        self._conversation_summary_history = conversation_history_summary
+        self._review_history = review_history
         self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self._conn = None
         self._event_queue: asyncio.Queue = asyncio.Queue()
@@ -111,16 +86,39 @@ class RealtimeSession:
         self._connected_event = asyncio.Event()
         self._turn_index = 0
 
+    def _build_conversation_system_prompt(self):
+        user_profile = f"User level: {self._profile.get('level', 'unknown')}\n"
+        if personal_facts := self._profile.get("personal_facts", ""):
+            user_profile += f"Personal facts: {personal_facts}\n"
+        return BASE_SYSTEM_PROMPT.format(
+            user_profile=user_profile,
+            conversation_topic=self._topic,
+            conversation_history_summary=self._conversation_summary_history or "None",
+        )
+
+    def _build_review_system_prompt(self):
+        weak_points = self._profile.get("weak_points", {})
+        if self._review_history:
+            history_text = "\n".join(f"- {note}" for note in self._review_history)
+        else:
+            history_text = "None"
+        return REVIEW_MODE_SYSTEM_PROMPT.format(
+            weak_points=weak_points,
+            past_review_history=history_text,
+        )
+
     async def connect(self) -> None:
         """Open WebSocket and configure the session."""
         self._conn = await self._client.beta.realtime.connect(
             model=settings.S2S_MODEL
         ).enter()
 
-        system_prompt = _build_system_prompt(self._topic, self._learner_summary,
-                                               self._mode, self._weak_points_detail,
-                                               self._prior_topic_summaries)
-        log.info("System prompt for session %s:\n%s", self.session_id, system_prompt)
+        if self._mode == SessionMode.CONVERSATION:
+            system_prompt = self._build_conversation_system_prompt()
+        elif self._mode == SessionMode.REVIEW:
+            system_prompt = self._build_review_system_prompt()
+        else:
+            raise ValueError(f"Unknown mode: {self._mode}")
 
         await self._conn.session.update(
             session={
