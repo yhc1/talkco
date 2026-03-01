@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     REVIEW_HISTORY_LIMIT: int = 5
     LEVEL_EVAL_SESSION_LIMIT: int = 10
     PROGRESS_NOTES_SESSION_LIMIT: int = 5
+    QUICK_REVIEW_LIMIT: int = 5
 
     # Profile constraints
     MAX_EXAMPLES_PER_PATTERN: int = 5

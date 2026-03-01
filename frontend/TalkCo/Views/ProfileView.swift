@@ -72,65 +72,25 @@ struct ProfileView: View {
                 }
             }
 
-            // Weak points
-            let wp = profile.profileData.weakPoints
-            if !wp.grammar.isEmpty || !wp.naturalness.isEmpty || !wp.sentenceStructure.isEmpty {
+            // Quick review
+            if !profile.profileData.quickReview.isEmpty {
                 Section {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("需要加強")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("快速複習")
                             .font(.headline)
-                        weakPointSection("文法", patterns: wp.grammar, color: .red)
-                        weakPointSection("自然度", patterns: wp.naturalness, color: .orange)
-                        weakPointSection("句構", patterns: wp.sentenceStructure, color: .purple)
-                    }
-                }
-            }
-
-        }
-    }
-
-    @ViewBuilder
-    private func weakPointSection(_ label: String, patterns: [WeakPointPattern], color: Color) -> some View {
-        if !patterns.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(label)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(color)
-                ForEach(patterns) { pattern in
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(pattern.examples.enumerated()), id: \.offset) { _, example in
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(example.wrong)
-                                        .font(.caption)
-                                        .strikethrough()
-                                        .foregroundStyle(.red.opacity(0.7))
-                                    Text(example.correct)
-                                        .font(.caption)
-                                        .foregroundStyle(.green)
-                                }
-                                .padding(.vertical, 2)
+                        ForEach(profile.profileData.quickReview) { item in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.chinese)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Text(item.english)
+                                    .font(.subheadline)
                             }
                         }
-                        .padding(.leading, 4)
-                    } label: {
-                        Text(pattern.pattern)
-                            .font(.caption)
-                            .foregroundStyle(.primary)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(color)
-                            .frame(width: 3)
                     }
                 }
             }
-            .padding(.vertical, 2)
+
         }
     }
 }

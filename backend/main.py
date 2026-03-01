@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import sessions
 from constants import SessionMode, SessionStatus
 from db import init_db, close_db, get_db
-from profile import get_or_create_profile, update_profile_after_session, evaluate_level, generate_progress_notes, compute_needs_review
+from profile import get_or_create_profile, update_profile_after_session, evaluate_level, generate_progress_notes, generate_quick_review, compute_needs_review
 from review import generate_correction, generate_session_review, generate_chat_summary
 from topics import get_topics, get_topic_by_id
 
@@ -373,9 +373,20 @@ async def get_user_profile(user_id: str):
     return profile
 
 
+async def _update_profile_data_sequentially(user_id: str) -> None:
+    """Run profile_data updates sequentially to avoid overwrite race."""
+    await generate_progress_notes(user_id)
+    await generate_quick_review(user_id)
+
+
 @app.post("/users/{user_id}/evaluate")
 async def evaluate_user_level(user_id: str):
-    await asyncio.gather(evaluate_level(user_id), generate_progress_notes(user_id))
+    # evaluate_level only updates `level` column, safe to run in parallel.
+    # progress_notes and quick_review both update profile_data — run sequentially to avoid overwrite race.
+    await asyncio.gather(
+        evaluate_level(user_id),
+        _update_profile_data_sequentially(user_id),
+    )
     profile = await get_or_create_profile(user_id)
     profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
     return profile

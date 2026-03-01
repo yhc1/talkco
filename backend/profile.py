@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 PROFILE_UPDATE_SYSTEM_PROMPT = """\
 You are an English language learning profile updater for Mandarin Chinese native speakers.
 
-Given the learner's current profile and their latest session data, update the profile.
+Given input data from the user message, update the learner profile.
 
 **Input data:**
 - Current profile (personal_facts, weak_points, common_errors)
@@ -39,26 +39,21 @@ Given the learner's current profile and their latest session data, update the pr
    - Use 繁體中文, each item is a brief description
    - Update based on session data: add new patterns, remove resolved ones
 
-Respond with JSON:
+Return ONLY valid JSON with this exact shape:
 {{
   "profile_data": {{
-    "personal_facts": ["住在台北", "是軟體工程師"],
+    "personal_facts": ["..."],
     "weak_points": {{
-      "grammar": [
-        {{
-          "pattern": "過去式混用為現在式",
-          "examples": [
-            {{ "wrong": "I go to store yesterday", "correct": "I went to the store yesterday" }}
-          ]
-        }}
-      ],
-      "naturalness": [],
-      "sentence_structure": []
+      "grammar": [{{ "pattern": "...", "examples": [{{ "wrong": "...", "correct": "..." }}] }}],
+      "naturalness": [{{ "pattern": "...", "examples": [{{ "wrong": "...", "correct": "..." }}] }}],
+      "sentence_structure": [{{ "pattern": "...", "examples": [{{ "wrong": "...", "correct": "..." }}] }}]
     }},
-    "common_errors": ["經常漏掉冠詞 a/the"]
+    "common_errors": ["..."]
   }}
 }}\
-""".format(max_examples=settings.MAX_EXAMPLES_PER_PATTERN)
+""".format(
+    max_examples=settings.MAX_EXAMPLES_PER_PATTERN,
+)
 
 
 async def get_or_create_profile(user_id: str) -> dict:
@@ -88,6 +83,7 @@ async def get_or_create_profile(user_id: str) -> dict:
         },
         "common_errors": [],
         "progress_notes": "",
+        "quick_review": [],
     }
     await db.execute(
         "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
@@ -129,28 +125,87 @@ async def update_profile_after_session(user_id: str, session_id: str) -> dict:
         (session_id,),
     )
 
-    # Build prompt
-    user_msg_parts = [
-        f"Current profile: {json.dumps(profile['profile_data'], ensure_ascii=False)}",
-        "",
-        "Session transcript:",
-    ]
-    for seg in segments:
-        user_msg_parts.append(f"  Turn {seg['turn_index']}: User: {seg['user_text']} | AI: {seg['ai_text']}")
+    input_payload = {
+        "current_profile": profile["profile_data"],
+        "session_transcript": [
+            {
+                "segment_id": seg["id"],
+                "turn_index": seg["turn_index"],
+                "user_text": seg["user_text"],
+                "ai_text": seg["ai_text"],
+            }
+            for seg in segments
+        ],
+        "ai_identified_issues": [
+            {
+                "segment_id": m["segment_id"],
+                "issue_types": json.loads(m["issue_types"])
+                if isinstance(m["issue_types"], str)
+                else m["issue_types"],
+                "original": m["original"],
+                "suggestion": m["suggestion"],
+            }
+            for m in marks
+        ],
+        "learner_corrections": [
+            {
+                "segment_id": c["segment_id"],
+                "user_message": c["user_message"],
+                "correction": c["correction"],
+            }
+            for c in corrections
+        ],
+    }
 
-    if marks:
-        user_msg_parts.append("\nAI-identified issues:")
-        for m in marks:
-            types = json.loads(m["issue_types"]) if isinstance(m["issue_types"], str) else m["issue_types"]
-            types_str = ", ".join(types)
-            user_msg_parts.append(f"  [{types_str}] \"{m['original']}\" → \"{m['suggestion']}\"")
+    transcript_lines = "\n".join(
+        '  Turn {turn_index}: User: {user_text} | AI: {ai_text}'.format(
+            turn_index=turn["turn_index"],
+            user_text=turn["user_text"],
+            ai_text=turn["ai_text"],
+        )
+        for turn in input_payload["session_transcript"]
+    ) or "  (No transcript turns)"
 
-    if corrections:
-        user_msg_parts.append("\nLearner corrections:")
-        for c in corrections:
-            user_msg_parts.append(f"  Asked: {c['user_message']}, Correction: {c['correction']}")
+    mark_lines = "\n".join(
+        '  [{types}] "{original}" → "{suggestion}"'.format(
+            types=", ".join(issue["issue_types"]),
+            original=issue["original"],
+            suggestion=issue["suggestion"],
+        )
+        for issue in input_payload["ai_identified_issues"]
+    ) or "  (No AI-identified issues)"
 
-    result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, "\n".join(user_msg_parts))
+    correction_lines = "\n".join(
+        "  Asked: {user_message}, Correction: {correction}".format(
+            user_message=correction["user_message"],
+            correction=correction["correction"],
+        )
+        for correction in input_payload["learner_corrections"]
+    ) or "  (No learner corrections)"
+
+    user_message = """\
+Current profile: {profile_json}
+
+Session transcript:
+{transcript_lines}
+
+AI-identified issues:
+{mark_lines}
+
+Learner corrections:
+{correction_lines}
+
+Input data (JSON):
+{input_payload_json}\
+""".format(
+        profile_json=json.dumps(profile["profile_data"], ensure_ascii=False),
+        transcript_lines=transcript_lines,
+        mark_lines=mark_lines,
+        correction_lines=correction_lines,
+        input_payload_json=json.dumps(input_payload, ensure_ascii=False, indent=2),
+    )
+
+    result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, user_message)
 
     # Update DB — keep existing level, only update profile_data
     now = datetime.now(timezone.utc).isoformat()
@@ -212,22 +267,35 @@ async def evaluate_level(user_id: str) -> dict:
         (user_id,),
     )
 
-    user_msg_parts = [
-        f"Current profile: {json.dumps(profile, ensure_ascii=False)}",
-        "",
-    ]
+    summaries_block = (
+        "Recent session summaries (most recent first):\n{lines}".format(
+            lines="\n".join(
+                "  Session {index}:\n"
+                "    Strengths: {strengths}\n"
+                "    Weaknesses: {weaknesses}\n"
+                "    Overall: {overall}".format(
+                    index=i,
+                    strengths=rs["strengths"],
+                    weaknesses=rs["weaknesses"],
+                    overall=rs["overall"],
+                )
+                for i, rs in enumerate(recent_summaries, 1)
+            )
+        )
+        if recent_summaries
+        else "No completed sessions yet."
+    )
 
-    if recent_summaries:
-        user_msg_parts.append("Recent session summaries (most recent first):")
-        for i, rs in enumerate(recent_summaries, 1):
-            user_msg_parts.append(f"  Session {i}:")
-            user_msg_parts.append(f"    Strengths: {rs['strengths']}")
-            user_msg_parts.append(f"    Weaknesses: {rs['weaknesses']}")
-            user_msg_parts.append(f"    Overall: {rs['overall']}")
-    else:
-        user_msg_parts.append("No completed sessions yet.")
+    user_message = """\
+Current profile: {profile_json}
 
-    result = await chat_json(LEVEL_EVAL_SYSTEM_PROMPT, "\n".join(user_msg_parts))
+{summaries_block}\
+""".format(
+        profile_json=json.dumps(profile, ensure_ascii=False),
+        summaries_block=summaries_block,
+    )
+
+    result = await chat_json(LEVEL_EVAL_SYSTEM_PROMPT, user_message)
 
     new_level = result.get("level", profile["level"])
     now = datetime.now(timezone.utc).isoformat()
@@ -293,32 +361,57 @@ async def generate_progress_notes(user_id: str) -> dict:
         (user_id,),
     )
 
-    user_msg_parts = [
-        f"Current profile: {json.dumps(profile['profile_data'], ensure_ascii=False)}",
-        f"Current level: {profile['level'] or 'Not evaluated'}",
-        "",
-    ]
+    session_summary_block = (
+        "Recent conversation session summaries (most recent first):\n{lines}".format(
+            lines="\n".join(
+                "  Session {index}:\n"
+                "    Strengths: {strengths}\n"
+                "    Weaknesses: {weaknesses}\n"
+                "    Overall: {overall}".format(
+                    index=i,
+                    strengths=ss["strengths"],
+                    weaknesses=ss["weaknesses"],
+                    overall=ss["overall"],
+                )
+                for i, ss in enumerate(session_summaries, 1)
+            )
+        )
+        if session_summaries
+        else "No conversation sessions yet."
+    )
 
-    if session_summaries:
-        user_msg_parts.append("Recent conversation session summaries (most recent first):")
-        for i, ss in enumerate(session_summaries, 1):
-            user_msg_parts.append(f"  Session {i}:")
-            user_msg_parts.append(f"    Strengths: {ss['strengths']}")
-            user_msg_parts.append(f"    Weaknesses: {ss['weaknesses']}")
-            user_msg_parts.append(f"    Overall: {ss['overall']}")
-    else:
-        user_msg_parts.append("No conversation sessions yet.")
+    review_summary_block = (
+        "Recent review session summaries (most recent first):\n{lines}".format(
+            lines="\n".join(
+                "  Review {index}:\n"
+                "    Practiced: {practiced}\n"
+                "    Notes: {notes}".format(
+                    index=i,
+                    practiced=rs["practiced"],
+                    notes=rs["notes"],
+                )
+                for i, rs in enumerate(review_summaries, 1)
+            )
+        )
+        if review_summaries
+        else "No review sessions yet."
+    )
 
-    if review_summaries:
-        user_msg_parts.append("\nRecent review session summaries (most recent first):")
-        for i, rs in enumerate(review_summaries, 1):
-            user_msg_parts.append(f"  Review {i}:")
-            user_msg_parts.append(f"    Practiced: {rs['practiced']}")
-            user_msg_parts.append(f"    Notes: {rs['notes']}")
-    else:
-        user_msg_parts.append("\nNo review sessions yet.")
+    user_message = """\
+Current profile: {profile_json}
+Current level: {level}
 
-    result = await chat_json(PROGRESS_NOTES_SYSTEM_PROMPT, "\n".join(user_msg_parts))
+{session_summary_block}
+
+{review_summary_block}\
+""".format(
+        profile_json=json.dumps(profile["profile_data"], ensure_ascii=False),
+        level=profile["level"] or "Not evaluated",
+        session_summary_block=session_summary_block,
+        review_summary_block=review_summary_block,
+    )
+
+    result = await chat_json(PROGRESS_NOTES_SYSTEM_PROMPT, user_message)
 
     progress_notes = result.get("progress_notes", "")
 
@@ -339,6 +432,164 @@ async def generate_progress_notes(user_id: str) -> dict:
         "user_id": user_id,
         "level": profile["level"],
         "profile_data": profile["profile_data"],
+        "updated_at": now,
+    }
+
+
+QUICK_REVIEW_SYSTEM_PROMPT = """\
+You are a language learning assistant for a Mandarin Chinese native speaker learning English.
+
+Given the learner's recent errors and corrections, produce a concise quick-review list.
+
+**Priority rules:**
+1. **Highest priority — corrections**: Sentences the learner explicitly asked "how do I say this?" \
+These represent conscious learning intent and MUST appear first.
+2. **Second priority — AI marks (naturalness / sentence_structure)**: Unnatural phrasing or \
+Chinese-influenced sentence patterns are more valuable to review than simple grammar.
+3. **Lowest priority — simple grammar** (tense, articles): Include only if space remains.
+4. Cross-reference with review_summaries "still_struggling" patterns — these indicate \
+the learner hasn't improved yet, so they deserve extra weight.
+
+**Output rules:**
+- Each item: {{ "chinese": "簡短中文意思", "english": "correct English expression" }}
+- chinese should be a brief, natural 繁體中文 description of the intended meaning
+- english should be the correct, natural way to say it
+- Maximum {limit} items
+- No duplicates; merge if the same sentence appears in both corrections and ai_marks
+
+Respond with JSON:
+{{
+  "quick_review": [
+    {{ "chinese": "...", "english": "..." }}
+  ]
+}}\
+""".format(
+    limit=settings.QUICK_REVIEW_LIMIT,
+)
+
+
+async def generate_quick_review(user_id: str) -> dict:
+    """Generate a quick-review list of sentences the learner should practice."""
+    db = await get_db()
+    profile = await get_or_create_profile(user_id)
+
+    limit = settings.PROGRESS_NOTES_SESSION_LIMIT
+
+    # Fetch recent conversation session IDs
+    recent_sessions = await db.execute_fetchall(
+        "SELECT id FROM sessions "
+        "WHERE user_id = ? AND mode = 'conversation' "
+        f"ORDER BY started_at DESC LIMIT {limit}",
+        (user_id,),
+    )
+    session_ids = [s["id"] for s in recent_sessions]
+
+    corrections_data = []
+    marks_data = []
+
+    if session_ids:
+        placeholders = ",".join("?" * len(session_ids))
+
+        # Corrections — user explicitly asked "how to say this"
+        corrections = await db.execute_fetchall(
+            f"SELECT user_message, correction, explanation FROM corrections "
+            f"WHERE session_id IN ({placeholders})",
+            session_ids,
+        )
+        corrections_data = [
+            {
+                "user_message": c["user_message"],
+                "correction": c["correction"],
+                "explanation": c["explanation"],
+            }
+            for c in corrections
+        ]
+
+        # AI marks — segments + ai_marks
+        seg_rows = await db.execute_fetchall(
+            f"SELECT id, user_text FROM segments WHERE session_id IN ({placeholders})",
+            session_ids,
+        )
+        seg_ids = [s["id"] for s in seg_rows]
+        seg_text_map = {s["id"]: s["user_text"] for s in seg_rows}
+
+        if seg_ids:
+            mark_placeholders = ",".join("?" * len(seg_ids))
+            marks = await db.execute_fetchall(
+                f"SELECT segment_id, issue_types, original, suggestion "
+                f"FROM ai_marks WHERE segment_id IN ({mark_placeholders})",
+                seg_ids,
+            )
+            marks_data = [
+                {
+                    "issue_types": json.loads(m["issue_types"])
+                    if isinstance(m["issue_types"], str)
+                    else m["issue_types"],
+                    "original": m["original"],
+                    "suggestion": m["suggestion"],
+                    "user_text": seg_text_map.get(m["segment_id"], ""),
+                }
+                for m in marks
+            ]
+
+    # Review summaries — still_struggling patterns
+    review_summaries = await db.execute_fetchall(
+        "SELECT practiced, notes FROM review_summaries "
+        "WHERE user_id = ? "
+        f"ORDER BY created_at DESC LIMIT {limit}",
+        (user_id,),
+    )
+    struggling_patterns = []
+    for rs in review_summaries:
+        try:
+            practiced = json.loads(rs["practiced"]) if isinstance(rs["practiced"], str) else rs["practiced"]
+            if isinstance(practiced, list):
+                for item in practiced:
+                    if isinstance(item, dict) and item.get("performance") == "still_struggling":
+                        struggling_patterns.extend(item.get("patterns", []))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    user_message = """\
+Corrections (learner explicitly asked — highest priority):
+{corrections_block}
+
+AI-identified issues:
+{marks_block}
+
+Still-struggling patterns from review sessions:
+{struggling_block}\
+""".format(
+        corrections_block=json.dumps(corrections_data, ensure_ascii=False, indent=2) if corrections_data else "  (None)",
+        marks_block=json.dumps(marks_data, ensure_ascii=False, indent=2) if marks_data else "  (None)",
+        struggling_block=json.dumps(struggling_patterns, ensure_ascii=False) if struggling_patterns else "  (None)",
+    )
+
+    result = await chat_json(QUICK_REVIEW_SYSTEM_PROMPT, user_message)
+
+    quick_review = result.get("quick_review", [])
+
+    # Re-read latest profile_data to avoid race with parallel updates
+    now = datetime.now(timezone.utc).isoformat()
+    rows = await db.execute_fetchall(
+        "SELECT profile_data FROM user_profiles WHERE user_id = ?", (user_id,),
+    )
+    current_data = json.loads(rows[0]["profile_data"]) if rows else profile["profile_data"]
+    current_data["quick_review"] = quick_review
+    new_data = json.dumps(current_data, ensure_ascii=False)
+
+    await db.execute(
+        "UPDATE user_profiles SET profile_data = ?, updated_at = ? WHERE user_id = ?",
+        (new_data, now, user_id),
+    )
+    await db.commit()
+
+    log.info("User %s quick review updated (%d items)", user_id, len(quick_review))
+
+    return {
+        "user_id": user_id,
+        "level": profile["level"],
+        "profile_data": current_data,
         "updated_at": now,
     }
 

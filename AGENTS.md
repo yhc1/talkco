@@ -1,36 +1,37 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `backend/` — FastAPI service, OpenAI providers, SQLite storage, and pytest tests.
-- `frontend/` — iOS app (SwiftUI) with models, services, view models, and views under `frontend/TalkCo/`.
-- Root docs: `CLAUDE.md` (product context), `backend/CLAUDE.md`, `frontend/CLAUDE.md`
+- `backend/`: FastAPI service, SQLite access, OpenAI provider adapters, and backend tests.
+- `frontend/`: iOS app (`TalkCo`) built with SwiftUI plus unit tests in `TalkCoTests`.
+- `shared/`: cross-platform JSON constants (`constants.json`, `topics.json`) consumed by both backend and frontend.
+- Root docs: `CLAUDE.md` defines product-level behavior; `backend/CLAUDE.md` and `frontend/CLAUDE.md` define implementation details.
 
 ## Build, Test, and Development Commands
-- Backend server:
-  - `cd backend && source .venv/bin/activate && python main.py` — run API locally.
-- Backend test client:
-  - `cd backend && source .venv/bin/activate && python test_client.py` — end-to-end conversation flow.
-- Backend tests:
-  - `cd backend && source .venv/bin/activate && python -m pytest tests/ -v` — unit tests for review flow.
-- Frontend app:
-  - Open `frontend/TalkCo.xcodeproj` in Xcode and Run (iOS 17+).
+- Backend run (from `backend/`): `python main.py`  
+  Starts FastAPI via Uvicorn on `http://0.0.0.0:8000`.
+- Backend tests (from `backend/`): `python -m pytest tests/ -v`  
+  Runs async pytest suite (`pytest.ini` sets `asyncio_mode=auto`).
+- Frontend tests (from `frontend/`): `xcodebuild test -project TalkCo.xcodeproj -scheme TalkCo -destination 'platform=iOS Simulator,name=iPhone 15'`  
+  Runs Swift unit tests in `TalkCoTests`.
+- Optional project regeneration (from `frontend/`): `xcodegen generate`  
+  Rebuilds Xcode project from `project.yml` when project config changes.
 
 ## Coding Style & Naming Conventions
-- Follow existing conventions in each module; keep files small and focused.
-- Python: PEP 8 style, 4-space indent, snake_case for functions/vars, PascalCase for classes.
-- Swift: SwiftUI + `@Observable`, standard Swift naming (camelCase, PascalCase types).
-- No formatter/linter is configured; align with nearby code.
+- Python: 4-space indentation, type hints on public functions, `snake_case` for functions/variables, `PascalCase` for classes.
+- Swift: 4-space indentation, `camelCase` members, `PascalCase` types/files (for example `ConversationViewModel.swift`).
+- Prefer enums/constants over raw strings for domain values (session mode/status/issue dimension). Update `shared/constants.json` first, then synced enums in backend and frontend.
 
 ## Testing Guidelines
-- Framework: pytest (`backend/pytest.ini` uses `asyncio_mode = auto`).
-- Test naming: `test_*.py` in `backend/tests/`.
-- Run tests via the pytest command above; add/adjust mocks for `chat_json` as needed.
+- Backend tests live in `backend/tests/` and use `test_*.py` naming.
+- Frontend tests live in `frontend/TalkCoTests/` and group by feature (`Models/`, `Services/`, `ViewModels/`).
+- Add or update tests for each behavior change, especially API contract changes and session/review flows.
+- No fixed coverage threshold is configured; keep changed code paths exercised.
 
 ## Commit & Pull Request Guidelines
-- Commit messages follow `<type>: summary` (e.g., `<feature>: add review flow`).
-- Prefer small, scoped commits; reference relevant files/paths in PR descriptions.
-- For UI changes, include screenshots or a short video in the PR.
+- Follow Conventional Commit style seen in history: `feat: ...`, `refactor: ...`, `fix: ...`.
+- Keep commits focused (single concern) and describe user-visible impact.
+- PRs should include: concise summary, test evidence (commands run), linked issue/task, and screenshots/video for UI changes.
 
-## Security & Configuration Tips
-- Backend uses `.env` for `OPENAI_API_KEY`, `S2S_MODEL`, `CHAT_MODEL`, and `DB_PATH`.
-- SQLite database defaults to `talkco.db` in `backend/`; don’t commit local DB files.
+## Configuration & Security Tips
+- Backend settings are read from `backend/.env` (`OPENAI_API_KEY`, model names, `DB_PATH`).
+- Do not commit secrets or local database artifacts with sensitive data.

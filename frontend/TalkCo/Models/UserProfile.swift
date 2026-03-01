@@ -16,17 +16,25 @@ struct UserProfile: Codable {
     }
 }
 
+struct QuickReviewItem: Codable, Identifiable {
+    let chinese: String
+    let english: String
+    var id: String { chinese + english }
+}
+
 struct ProfileData: Codable {
     let personalFacts: [String]
     let weakPoints: WeakPoints
     let commonErrors: [String]
     let progressNotes: String
+    let quickReview: [QuickReviewItem]
 
     enum CodingKeys: String, CodingKey {
         case personalFacts = "personal_facts"
         case weakPoints = "weak_points"
         case commonErrors = "common_errors"
         case progressNotes = "progress_notes"
+        case quickReview = "quick_review"
     }
 
     init(from decoder: Decoder) throws {
@@ -34,6 +42,7 @@ struct ProfileData: Codable {
         personalFacts = (try? container.decode([String].self, forKey: .personalFacts)) ?? []
         commonErrors = (try? container.decode([String].self, forKey: .commonErrors)) ?? []
         progressNotes = (try? container.decode(String.self, forKey: .progressNotes)) ?? ""
+        quickReview = (try? container.decode([QuickReviewItem].self, forKey: .quickReview)) ?? []
 
         // weak_points can be old format (array or dict of strings) or new format (dict of pattern objects)
         if let wp = try? container.decode(WeakPoints.self, forKey: .weakPoints) {

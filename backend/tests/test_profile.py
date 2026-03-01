@@ -103,10 +103,11 @@ async def test_get_or_create_profile_default():
     result = await profile.get_or_create_profile("new_user")
 
     data = result["profile_data"]
-    assert set(data.keys()) == {"personal_facts", "weak_points", "common_errors", "progress_notes"}
+    assert set(data.keys()) == {"personal_facts", "weak_points", "common_errors", "progress_notes", "quick_review"}
     assert data["personal_facts"] == []
     assert data["common_errors"] == []
     assert data["progress_notes"] == ""
+    assert data["quick_review"] == []
     assert set(data["weak_points"].keys()) == {"grammar", "naturalness", "sentence_structure"}
 
 
@@ -290,3 +291,47 @@ async def test_generate_progress_notes(mock_chat):
     )
     stored = json.loads(rows[0]["profile_data"])
     assert stored["progress_notes"] == "你最近練習了日常對話，過去式的使用有明顯進步。建議加強自然度。"
+
+
+@pytest.mark.asyncio
+@patch("profile.chat_json", new_callable=AsyncMock)
+async def test_generate_quick_review(mock_chat):
+    """generate_quick_review queries corrections + ai_marks and sends them to LLM."""
+    mock_chat.return_value = {
+        "quick_review": [
+            {"chinese": "我昨天去商店", "english": "I went to the store yesterday"},
+            {"chinese": "我買了一些蘋果", "english": "I bought some apples"},
+        ]
+    }
+
+    await _insert_session_with_marks(session_id="s20", user_id="u3")
+
+    # Set session mode to conversation (required for query)
+    db = await get_db()
+    await db.execute("UPDATE sessions SET mode = 'conversation' WHERE id = 's20'")
+    await db.commit()
+
+    result = await profile.generate_quick_review("u3")
+
+    # Verify chat_json was called
+    mock_chat.assert_called_once()
+    system_prompt, user_msg = mock_chat.call_args[0]
+
+    # Verify corrections data is included (highest priority)
+    assert "這句要怎麼說比較好" in user_msg
+    assert "I went to the store yesterday" in user_msg
+
+    # Verify AI marks data is included
+    assert "I go to store yesterday" in user_msg or "I buy some apple" in user_msg
+
+    # Verify result
+    assert len(result["profile_data"]["quick_review"]) == 2
+    assert result["profile_data"]["quick_review"][0]["chinese"] == "我昨天去商店"
+    assert result["profile_data"]["quick_review"][0]["english"] == "I went to the store yesterday"
+
+    # Verify DB persistence
+    rows = await db.execute_fetchall(
+        "SELECT profile_data FROM user_profiles WHERE user_id = 'u3'"
+    )
+    stored = json.loads(rows[0]["profile_data"])
+    assert len(stored["quick_review"]) == 2

@@ -19,10 +19,12 @@ The main features of this app:
 ```mermaid
 flowchart LR
     A[Home] --> B{Conversation Type}
-    B -->|New conversation| C[Pick a topic]
-    B -->|Review mode| D[Review conversation]
-    C --> E[End of conversation review]
-    E --> F[Update user learning profile]
+    B -->|Talk mode| C[Pick a topic]
+    B -->|Review mode| D[Review]
+    C --> E[Talk]
+    E --> F[End of conversation review]
+    F --> G[AI summary]
+    G --> H[Update user learning profile]
 ```
 
 **Node descriptions:**
