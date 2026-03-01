@@ -12,25 +12,53 @@ with open(_JSON_PATH, encoding="utf-8") as _f:
 
 # --- Session Modes ---
 
-SessionMode = StrEnum("SessionMode", {
-    v.upper(): v for v in _CONSTANTS["session_modes"]
-})
+class SessionMode(StrEnum):
+    CONVERSATION = "conversation"
+    REVIEW = "review"
 
 
 # --- Session Statuses ---
 
-SessionStatus = StrEnum("SessionStatus", {
-    v.upper(): v for v in _CONSTANTS["session_statuses"]
-})
+class SessionStatus(StrEnum):
+    ACTIVE = "active"
+    REVIEWING = "reviewing"
+    COMPLETING = "completing"
+    COMPLETED = "completed"
+    ENDED = "ended"
 
 
 # --- Issue Dimensions ---
 
-IssueDimension = StrEnum("IssueDimension", {
-    v.upper(): v for v in _CONSTANTS["issue_dimensions"]
-})
+class IssueDimension(StrEnum):
+    GRAMMAR = "grammar"
+    NATURALNESS = "naturalness"
+    SENTENCE_STRUCTURE = "sentence_structure"
+
 
 DIMENSION_LABELS: dict[str, dict[str, str]] = {
     dim: {"en": info["en"], "zh": info["zh"]}
     for dim, info in _CONSTANTS["issue_dimensions"].items()
 }
+
+
+# --- Validate enums match JSON (fail fast on mismatch) ---
+
+def _validate() -> None:
+    for enum_cls, key in [
+        (SessionMode, "session_modes"),
+        (SessionStatus, "session_statuses"),
+        (IssueDimension, "issue_dimensions"),
+    ]:
+        json_values = set(
+            _CONSTANTS[key] if isinstance(_CONSTANTS[key], list)
+            else _CONSTANTS[key].keys()
+        )
+        enum_values = {e.value for e in enum_cls}
+        if json_values != enum_values:
+            raise ValueError(
+                f"{enum_cls.__name__} mismatch with constants.json[{key}]: "
+                f"json={json_values}, enum={enum_values}"
+            )
+
+
+_validate()
