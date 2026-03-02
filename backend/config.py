@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     S2S_MODEL: str = "gpt-4o-realtime-preview"
     S2S_VOICE: str = "alloy"
     CHAT_MODEL: str = "gpt-4o"
-    DB_PATH: str = "talkco.db"
+    DATABASE_URL: str
 
     # Query limits
     CONVERSATION_HISTORY_LIMIT: int = 5

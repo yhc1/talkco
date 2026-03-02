@@ -1,125 +1,144 @@
-import aiosqlite
+import re
+
+import asyncpg
 
 from config import settings
 
-_db: aiosqlite.Connection | None = None
+_pool: asyncpg.Pool | None = None
 
-SCHEMA = """\
-CREATE TABLE IF NOT EXISTS sessions (
-    id         TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL,
-    started_at TEXT NOT NULL,
-    ended_at   TEXT,
-    status     TEXT NOT NULL DEFAULT 'active',
-    mode       TEXT NOT NULL DEFAULT 'conversation'
-);
+SCHEMA_STATEMENTS = [
+    """\
+    CREATE TABLE IF NOT EXISTS sessions (
+        id         TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at   TEXT,
+        status     TEXT NOT NULL DEFAULT 'active',
+        mode       TEXT NOT NULL DEFAULT 'conversation',
+        topic_id   TEXT
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS segments (
+        id         SERIAL PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES sessions(id),
+        turn_index INTEGER NOT NULL,
+        user_text  TEXT NOT NULL,
+        ai_text    TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(session_id, turn_index)
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS ai_marks (
+        id          SERIAL PRIMARY KEY,
+        segment_id  INTEGER NOT NULL REFERENCES segments(id),
+        issue_types TEXT NOT NULL,
+        original    TEXT NOT NULL,
+        suggestion  TEXT NOT NULL,
+        explanation TEXT NOT NULL
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS corrections (
+        id              SERIAL PRIMARY KEY,
+        session_id      TEXT NOT NULL REFERENCES sessions(id),
+        segment_id      INTEGER NOT NULL REFERENCES segments(id),
+        user_message    TEXT NOT NULL,
+        correction      TEXT NOT NULL,
+        explanation     TEXT NOT NULL,
+        created_at      TEXT NOT NULL
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id      TEXT PRIMARY KEY,
+        level        TEXT,
+        profile_data TEXT NOT NULL DEFAULT '{}',
+        updated_at   TEXT NOT NULL
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS session_summaries (
+        session_id       TEXT PRIMARY KEY REFERENCES sessions(id),
+        user_id          TEXT NOT NULL,
+        strengths        TEXT NOT NULL,
+        weaknesses       TEXT NOT NULL,
+        overall          TEXT NOT NULL,
+        created_at       TEXT NOT NULL
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS chat_summaries (
+        session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+        topic_id   TEXT NOT NULL,
+        summary    TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
+    """\
+    CREATE TABLE IF NOT EXISTS review_summaries (
+        session_id   TEXT PRIMARY KEY REFERENCES sessions(id),
+        user_id      TEXT NOT NULL,
+        practiced    TEXT NOT NULL,
+        notes        TEXT NOT NULL,
+        created_at   TEXT NOT NULL
+    )""",
+]
 
-CREATE TABLE IF NOT EXISTS segments (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    turn_index INTEGER NOT NULL,
-    user_text  TEXT NOT NULL,
-    ai_text    TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    UNIQUE(session_id, turn_index)
-);
 
-CREATE TABLE IF NOT EXISTS ai_marks (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    segment_id  INTEGER NOT NULL REFERENCES segments(id),
-    issue_types TEXT NOT NULL,   -- JSON array: ["grammar", "naturalness", ...]
-    original    TEXT NOT NULL,
-    suggestion  TEXT NOT NULL,
-    explanation TEXT NOT NULL
-);
+def _convert_placeholders(sql: str) -> str:
+    """Convert SQLite-style ? placeholders to PostgreSQL $1, $2, ... style."""
+    counter = 0
 
-CREATE TABLE IF NOT EXISTS corrections (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id      TEXT NOT NULL REFERENCES sessions(id),
-    segment_id      INTEGER NOT NULL REFERENCES segments(id),
-    user_message    TEXT NOT NULL,
-    correction      TEXT NOT NULL,
-    explanation     TEXT NOT NULL,
-    created_at      TEXT NOT NULL
-);
+    def replacer(match):
+        nonlocal counter
+        counter += 1
+        return f"${counter}"
 
-CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id      TEXT PRIMARY KEY,
-    level        TEXT,
-    profile_data TEXT NOT NULL DEFAULT '{}',
-    updated_at   TEXT NOT NULL
-);
+    return re.sub(r"\?", replacer, sql)
 
-CREATE TABLE IF NOT EXISTS session_summaries (
-    session_id       TEXT PRIMARY KEY REFERENCES sessions(id),
-    user_id          TEXT NOT NULL,
-    strengths        TEXT NOT NULL,      -- JSON array
-    weaknesses       TEXT NOT NULL,      -- JSON object { grammar: "...", ... }
-    overall          TEXT NOT NULL,
-    created_at       TEXT NOT NULL
-);
 
-CREATE TABLE IF NOT EXISTS chat_summaries (
-    session_id TEXT PRIMARY KEY REFERENCES sessions(id),
-    topic_id   TEXT NOT NULL,
-    summary    TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
+class Database:
+    """Wrapper around asyncpg pool that provides an aiosqlite-compatible interface."""
 
-CREATE TABLE IF NOT EXISTS review_summaries (
-    session_id   TEXT PRIMARY KEY REFERENCES sessions(id),
-    user_id      TEXT NOT NULL,
-    practiced    TEXT NOT NULL,
-    notes        TEXT NOT NULL,
-    created_at   TEXT NOT NULL
-);
-"""
+    def __init__(self, pool: asyncpg.Pool):
+        self._pool = pool
+
+    async def execute_fetchall(self, sql: str, params: tuple | list = ()) -> list[dict]:
+        """Execute a query and return all rows as list of dicts."""
+        converted = _convert_placeholders(sql)
+        rows = await self._pool.fetch(converted, *params)
+        return [dict(r) for r in rows]
+
+    async def execute(self, sql: str, params: tuple | list = ()) -> dict | None:
+        """Execute a statement. If SQL contains RETURNING, fetch and return the row as dict."""
+        converted = _convert_placeholders(sql)
+        if "RETURNING" in converted.upper() or "returning" in converted:
+            row = await self._pool.fetchrow(converted, *params)
+            return dict(row) if row else None
+        await self._pool.execute(converted, *params)
+        return None
+
+    async def commit(self) -> None:
+        """No-op: asyncpg auto-commits each statement."""
+        pass
+
+
+_db: Database | None = None
 
 
 async def init_db() -> None:
-    global _db
-    _db = await aiosqlite.connect(settings.DB_PATH)
-    _db.row_factory = aiosqlite.Row
-    await _db.executescript(SCHEMA)
-    await _db.execute("PRAGMA foreign_keys = ON")
-
-    # Migration: add mode column to sessions if missing
-    cols = await _db.execute_fetchall("PRAGMA table_info(sessions)")
-    col_names = [c["name"] for c in cols]
-    if "mode" not in col_names:
-        await _db.execute("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'conversation'")
-    if "topic_id" not in col_names:
-        await _db.execute("ALTER TABLE sessions ADD COLUMN topic_id TEXT")
-
-    # Migration: drop level_assessment from session_summaries if present
-    ss_cols = await _db.execute_fetchall("PRAGMA table_info(session_summaries)")
-    ss_col_names = [c["name"] for c in ss_cols]
-    if "level_assessment" in ss_col_names:
-        await _db.execute("ALTER TABLE session_summaries DROP COLUMN level_assessment")
-
-    # Migration: add user_id and created_at to session_summaries
-    if "user_id" not in ss_col_names:
-        await _db.execute("ALTER TABLE session_summaries ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
-    if "created_at" not in ss_col_names:
-        await _db.execute("ALTER TABLE session_summaries ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
-
-    # Migration: add created_at to chat_summaries
-    cs_cols = await _db.execute_fetchall("PRAGMA table_info(chat_summaries)")
-    cs_col_names = [c["name"] for c in cs_cols]
-    if "created_at" not in cs_col_names:
-        await _db.execute("ALTER TABLE chat_summaries ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
-
-    await _db.commit()
+    global _pool, _db
+    _pool = await asyncpg.create_pool(dsn=settings.DATABASE_URL)
+    _db = Database(_pool)
+    async with _pool.acquire() as conn:
+        for stmt in SCHEMA_STATEMENTS:
+            await conn.execute(stmt)
 
 
-async def get_db() -> aiosqlite.Connection:
+async def get_db() -> Database:
     if _db is None:
         raise RuntimeError("Database not initialized — call init_db() first")
     return _db
 
 
 async def close_db() -> None:
-    global _db
-    if _db is not None:
-        await _db.close()
+    global _pool, _db
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
         _db = None

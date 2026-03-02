@@ -132,8 +132,9 @@ async def generate_chat_summary(session_id: str, topic_id: str) -> dict:
 
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT OR REPLACE INTO chat_summaries (session_id, topic_id, summary, created_at) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO chat_summaries (session_id, topic_id, summary, created_at) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT (session_id) DO UPDATE SET topic_id = EXCLUDED.topic_id, summary = EXCLUDED.summary, created_at = EXCLUDED.created_at",
         (session_id, topic_id, summary, now),
     )
     await db.commit()
@@ -220,15 +221,15 @@ async def generate_correction(session_id: str, segment_id: int, user_message: st
     explanation = result.get("explanation", "")
 
     now = datetime.now(timezone.utc).isoformat()
-    cursor = await db.execute(
+    row = await db.execute(
         "INSERT INTO corrections (session_id, segment_id, user_message, correction, explanation, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
         (session_id, segment_id, user_message, correction, explanation, now),
     )
     await db.commit()
 
     return {
-        "id": cursor.lastrowid,
+        "id": row["id"],
         "segment_id": segment_id,
         "user_message": user_message,
         "correction": correction,
@@ -297,8 +298,9 @@ async def generate_session_review(session_id: str, user_id: str) -> dict | None:
     # Write to session_summaries
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT OR REPLACE INTO session_summaries (session_id, user_id, strengths, weaknesses, overall, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO session_summaries (session_id, user_id, strengths, weaknesses, overall, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT (session_id) DO UPDATE SET user_id = EXCLUDED.user_id, strengths = EXCLUDED.strengths, weaknesses = EXCLUDED.weaknesses, overall = EXCLUDED.overall, created_at = EXCLUDED.created_at",
         (
             session_id,
             user_id,
@@ -346,8 +348,9 @@ async def generate_review_summary(session_id: str, user_id: str) -> dict | None:
 
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(
-        "INSERT OR REPLACE INTO review_summaries (session_id, user_id, practiced, notes, created_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO review_summaries (session_id, user_id, practiced, notes, created_at) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT (session_id) DO UPDATE SET user_id = EXCLUDED.user_id, practiced = EXCLUDED.practiced, notes = EXCLUDED.notes, created_at = EXCLUDED.created_at",
         (session_id, user_id, json.dumps(practiced, ensure_ascii=False), notes, now),
     )
     await db.commit()

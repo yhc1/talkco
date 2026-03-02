@@ -165,6 +165,17 @@ async def _run_review(session_id: str) -> None:
         log.info("Review generated for session %s", session_id)
     except Exception as e:
         log.error("Failed to generate review for session %s: %s", session_id, e)
+    finally:
+        # Always mark as reviewed so the frontend stops polling
+        try:
+            db = await get_db()
+            await db.execute(
+                "UPDATE sessions SET status = ? WHERE id = ?",
+                (SessionStatus.REVIEWED, session_id),
+            )
+            await db.commit()
+        except Exception as e:
+            log.error("Failed to update status to reviewed for session %s: %s", session_id, e)
 
 
 async def _finalize_review(session_id: str, user_id: str) -> None:

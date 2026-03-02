@@ -37,9 +37,8 @@ final class ReviewViewModel {
                     status = response.status
                     summary = response.summary
 
-                    // Stop polling when: marks arrived, no segments to review, or backend moved past reviewing
-                    let hasMarks = response.segments.contains { !$0.aiMarks.isEmpty }
-                    if hasMarks || response.segments.isEmpty || response.status != SessionStatus.reviewing.rawValue {
+                    // Stop polling when backend moves past "reviewing" (→ "reviewed" means marks generation done)
+                    if response.status != SessionStatus.reviewing.rawValue {
                         isLoading = false
                         return
                     }

@@ -1,6 +1,6 @@
 {
   "session_modes": ["conversation", "review"],
-  "session_statuses": ["active", "reviewing", "completing", "completed", "ended"],
+  "session_statuses": ["active", "reviewing", "reviewed", "completing", "completed", "ended"],
   "issue_dimensions": {
     "grammar": { "en": "Grammar", "zh": "文法", "color": "red" },
     "naturalness": { "en": "Naturalness", "zh": "自然度", "color": "orange" },

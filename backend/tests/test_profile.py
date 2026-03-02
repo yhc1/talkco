@@ -18,16 +18,28 @@ from db import init_db, close_db, get_db
 import profile
 
 
+ALL_TABLES = ["review_summaries", "chat_summaries", "session_summaries",
+              "corrections", "ai_marks", "segments", "user_profiles", "sessions"]
+
+
 @pytest.fixture(autouse=True)
-async def setup_db(tmp_path):
-    """Create a temp DB for each test."""
+async def setup_db():
+    """Connect to test Supabase DB, truncate all tables after each test."""
     import config
-    config.settings.DB_PATH = str(tmp_path / "test.db")
+    test_url = os.environ.get("TEST_DATABASE_URL")
+    if not test_url:
+        pytest.skip("TEST_DATABASE_URL not set")
+    config.settings.DATABASE_URL = test_url
 
     import db as db_mod
+    db_mod._pool = None
     db_mod._db = None
     await init_db()
     yield
+    # Truncate all tables
+    db = await get_db()
+    for table in ALL_TABLES:
+        await db.execute(f"TRUNCATE {table} CASCADE")
     await close_db()
 
 
@@ -41,7 +53,8 @@ async def _create_user_profile(user_id="u1"):
         "common_errors": [],
     }
     await db.execute(
-        "INSERT OR IGNORE INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT DO NOTHING",
         (user_id, "intermediate", json.dumps(default_data), now),
     )
     await db.commit()

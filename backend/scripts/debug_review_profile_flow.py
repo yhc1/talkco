@@ -10,33 +10,41 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
+import os
+import sys
 import time
 from datetime import datetime, timezone
 
 import httpx
+import psycopg2
+import psycopg2.extras
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def seed_data(db_path: str, user_id: str, session_id: str) -> None:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+def seed_data(database_url: str, user_id: str, session_id: str) -> None:
+    conn = psycopg2.connect(database_url)
+    conn.autocommit = False
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     # Make reruns idempotent for the same session_id/user_id.
-    cur.execute("DELETE FROM corrections WHERE session_id = ?", (session_id,))
+    cur.execute("DELETE FROM corrections WHERE session_id = %s", (session_id,))
     cur.execute(
-        "DELETE FROM ai_marks WHERE segment_id IN (SELECT id FROM segments WHERE session_id = ?)",
+        "DELETE FROM ai_marks WHERE segment_id IN (SELECT id FROM segments WHERE session_id = %s)",
         (session_id,),
     )
-    cur.execute("DELETE FROM segments WHERE session_id = ?", (session_id,))
-    cur.execute("DELETE FROM session_summaries WHERE session_id = ?", (session_id,))
-    cur.execute("DELETE FROM chat_summaries WHERE session_id = ?", (session_id,))
-    cur.execute("DELETE FROM review_summaries WHERE session_id = ?", (session_id,))
-    cur.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    cur.execute("DELETE FROM segments WHERE session_id = %s", (session_id,))
+    cur.execute("DELETE FROM session_summaries WHERE session_id = %s", (session_id,))
+    cur.execute("DELETE FROM chat_summaries WHERE session_id = %s", (session_id,))
+    cur.execute("DELETE FROM review_summaries WHERE session_id = %s", (session_id,))
+    cur.execute("DELETE FROM sessions WHERE id = %s", (session_id,))
 
     profile_data = {
         "personal_facts": ["住在台北", "是 PM"],
@@ -45,12 +53,13 @@ def seed_data(db_path: str, user_id: str, session_id: str) -> None:
         "progress_notes": "",
     }
     cur.execute(
-        "INSERT OR IGNORE INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (%s, %s, %s, %s) "
+        "ON CONFLICT DO NOTHING",
         (user_id, "B1", json.dumps(profile_data, ensure_ascii=False), now_iso()),
     )
 
     cur.execute(
-        "INSERT INTO sessions (id, user_id, started_at, status, mode, topic_id) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sessions (id, user_id, started_at, status, mode, topic_id) VALUES (%s, %s, %s, %s, %s, %s)",
         (session_id, user_id, now_iso(), "reviewing", "conversation", "daily_life"),
     )
 
@@ -60,18 +69,21 @@ def seed_data(db_path: str, user_id: str, session_id: str) -> None:
     ]
     for idx, (u, a) in enumerate(turns):
         cur.execute(
-            "INSERT INTO segments (session_id, turn_index, user_text, ai_text, created_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO segments (session_id, turn_index, user_text, ai_text, created_at) VALUES (%s, %s, %s, %s, %s)",
             (session_id, idx, u, a, now_iso()),
         )
 
-    seg_rows = cur.execute(
-        "SELECT id, turn_index FROM segments WHERE session_id = ? ORDER BY turn_index",
+    conn.commit()
+
+    cur.execute(
+        "SELECT id, turn_index FROM segments WHERE session_id = %s ORDER BY turn_index",
         (session_id,),
-    ).fetchall()
+    )
+    seg_rows = cur.fetchall()
     seg_id = {r["turn_index"]: r["id"] for r in seg_rows}
 
     cur.execute(
-        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) VALUES (%s, %s, %s, %s, %s)",
         (
             seg_id[0],
             json.dumps(["grammar"], ensure_ascii=False),
@@ -81,7 +93,7 @@ def seed_data(db_path: str, user_id: str, session_id: str) -> None:
         ),
     )
     cur.execute(
-        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) VALUES (%s, %s, %s, %s, %s)",
         (
             seg_id[1],
             json.dumps(["grammar", "sentence_structure"], ensure_ascii=False),
@@ -92,7 +104,7 @@ def seed_data(db_path: str, user_id: str, session_id: str) -> None:
     )
     cur.execute(
         "INSERT INTO corrections (session_id, segment_id, user_message, correction, explanation, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, %s, %s, %s)",
         (
             session_id,
             seg_id[1],
@@ -104,18 +116,23 @@ def seed_data(db_path: str, user_id: str, session_id: str) -> None:
     )
 
     conn.commit()
+    cur.close()
     conn.close()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--db-path", default="talkco.db")
     parser.add_argument("--user-id", default="debug-user")
     parser.add_argument("--session-id", default="debug-session")
     args = parser.parse_args()
 
-    seed_data(args.db_path, args.user_id, args.session_id)
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        print("ERROR: DATABASE_URL not set in environment / .env")
+        sys.exit(1)
+
+    seed_data(database_url, args.user_id, args.session_id)
     print(f"Seeded session={args.session_id}, user={args.user_id}")
 
     with httpx.Client(base_url=args.base_url, timeout=20.0) as client:

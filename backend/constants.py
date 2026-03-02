@@ -22,6 +22,7 @@ class SessionMode(StrEnum):
 class SessionStatus(StrEnum):
     ACTIVE = "active"
     REVIEWING = "reviewing"
+    REVIEWED = "reviewed"
     COMPLETING = "completing"
     COMPLETED = "completed"
     ENDED = "ended"

@@ -45,6 +45,7 @@ enum SessionMode: String, Codable, CaseIterable {
 enum SessionStatus: String, Codable, CaseIterable {
     case active
     case reviewing
+    case reviewed
     case completing
     case completed
     case ended

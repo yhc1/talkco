@@ -262,7 +262,7 @@ async def create_correction(session_id: str, req: CorrectionRequest):
     if not session_rows:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session_rows[0]["status"] not in (SessionStatus.REVIEWING, SessionStatus.COMPLETED):
+    if session_rows[0]["status"] not in (SessionStatus.REVIEWING, SessionStatus.REVIEWED, SessionStatus.COMPLETED):
         raise HTTPException(status_code=400, detail="Session is not in review state")
 
     # Verify segment belongs to session
