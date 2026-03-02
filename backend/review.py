@@ -35,9 +35,20 @@ You are an English learning assistant for Mandarin Chinese speakers.
 The learner is reviewing their conversation and pointing at something they
 struggled with. They may explain in Chinese, broken English, or a mix.
 
-Given the segment context and the learner's message, provide:
-1. How a native speaker would naturally say it
-2. Brief explanation in Traditional Chinese (繁體中文)
+You must answer the learner's request based on the current segment and its
+detected issues, not translate or paraphrase the learner's message itself.
+
+Rules:
+- Focus on fixing the sentence in the segment context.
+- If the learner asks for more examples (e.g. "多一點範例"), provide 2-3 short
+  example sentences that follow the same corrected pattern.
+- Never output a translation of the learner's request as the correction.
+- Keep explanation concise in Traditional Chinese (繁體中文).
+
+Given the segment context, AI marks, and learner message, provide:
+1. correction: How a native speaker would naturally say the target sentence
+2. explanation: Brief Traditional Chinese explanation. Include examples when
+   requested.
 
 Respond as JSON: { "correction": "...", "explanation": "..." }\
 """
@@ -208,10 +219,26 @@ async def generate_correction(session_id: str, segment_id: int, user_message: st
         raise ValueError(f"Segment {segment_id} not found in session {session_id}")
 
     seg = rows[0]
+    marks = await db.execute_fetchall(
+        "SELECT issue_types, original, suggestion, explanation FROM ai_marks WHERE segment_id = ?",
+        (segment_id,),
+    )
+
+    marks_lines = []
+    for idx, mark in enumerate(marks, 1):
+        issue_types = json.loads(mark["issue_types"]) if mark["issue_types"] else []
+        marks_lines.append(
+            f"  Mark {idx}: issue_types={issue_types}, original={mark['original']}, "
+            f"suggestion={mark['suggestion']}, explanation={mark['explanation']}"
+        )
+
+    marks_text = "\n".join(marks_lines) if marks_lines else "  (No AI marks for this segment yet)"
+
     user_msg = (
         f"Segment context:\n"
         f"  User said: {seg['user_text']}\n"
-        f"  AI responded: {seg['ai_text']}\n\n"
+        f"  AI responded: {seg['ai_text']}\n"
+        f"AI marks:\n{marks_text}\n\n"
         f"Learner's message: {user_message}"
     )
 

@@ -27,7 +27,19 @@ final class AudioPlayer: AudioPlaying {
             setupEngine()
         }
 
-        guard let playerNode else { return }
+        guard let engine, let playerNode else { return }
+        // Recording reconfigures AVAudioSession; ensure playback graph is running again.
+        if !engine.isRunning {
+            do {
+                try engine.start()
+            } catch {
+                print("AudioPlayer engine restart failed: \(error)")
+                return
+            }
+        }
+        if !playerNode.isPlaying {
+            playerNode.play()
+        }
 
         let frameCount = AVAudioFrameCount(pcmData.count / 2) // 2 bytes per Int16 sample
         guard let buffer = AVAudioPCMBuffer(pcmFormat: playbackFormat, frameCapacity: frameCount) else { return }

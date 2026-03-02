@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import logging
+import random
 import time
 from datetime import datetime, timezone
 from os import system
@@ -15,6 +16,24 @@ from db import get_db
 from tools import TOOL_DEFINITIONS, execute_tool
 
 log = logging.getLogger(__name__)
+
+GREETING_STYLES = [
+    "Start by asking a fun 'would you rather' question related to the topic.",
+    "Open with a surprising or little-known fact about the topic, then ask what they think.",
+    "Begin with a casual, warm check-in about their day before transitioning to the topic.",
+    "Start with a light hypothetical scenario related to the topic.",
+    "Jump straight into the topic with an enthusiastic, opinionated statement and ask if they agree.",
+    "Open by sharing a short personal anecdote (as a conversation partner) related to the topic, then ask about theirs.",
+    "Start with a playful 'quick question' or mini-quiz related to the topic.",
+    "Begin by asking what made them choose this topic today.",
+]
+
+REVIEW_GREETING_STYLES = [
+    "Start with encouragement about their learning progress, then jump into the first exercise.",
+    "Open with a quick warm-up question before diving into the practice exercises.",
+    "Begin by briefly explaining what you'll practice today, then start with the first exercise.",
+    "Start with a casual check-in, then transition into practice with enthusiasm.",
+]
 
 BASE_SYSTEM_PROMPT = """\
 You are a friendly, patient English conversation partner for a Mandarin Chinese native speaker.
@@ -37,6 +56,10 @@ You are a friendly, patient English conversation partner for a Mandarin Chinese 
 
 **Recent conversation summary:**
 {{conversation_history_summary}}
+
+**Greeting:**
+- Never open with a generic "Hi, how are you?" or similar.
+- {{greeting_instruction}}
 
 If the learner asks about current events, use the `search_news` tool instead of guessing.
 """
@@ -62,6 +85,9 @@ You are a patient English teacher conducting targeted practice for a Mandarin Ch
 
 **Past review history:**
 {{past_review_history}}
+
+**Greeting:**
+- {{greeting_instruction}}
 """
 
 
@@ -90,10 +116,12 @@ class RealtimeSession:
         user_profile = f"User level: {self._profile.get('level', 'unknown')}\n"
         if personal_facts := self._profile.get("personal_facts", ""):
             user_profile += f"Personal facts: {personal_facts}\n"
+        greeting_instruction = self._build_greeting_instruction()
         return BASE_SYSTEM_PROMPT.format(
             user_profile=user_profile,
             conversation_topic=self._topic,
             conversation_history_summary=self._conversation_summary_history or "None",
+            greeting_instruction=greeting_instruction,
         )
 
     def _build_review_system_prompt(self):
@@ -102,10 +130,59 @@ class RealtimeSession:
             history_text = "\n".join(f"- {note}" for note in self._review_history)
         else:
             history_text = "None"
+        greeting_instruction = self._build_greeting_instruction()
         return REVIEW_MODE_SYSTEM_PROMPT.format(
             weak_points=weak_points,
             past_review_history=history_text,
+            greeting_instruction=greeting_instruction,
         )
+
+    def _build_greeting_instruction(self) -> str:
+        """Build dynamic greeting instruction for the system prompt."""
+        parts = []
+        if self._mode == SessionMode.CONVERSATION:
+            if self._conversation_summary_history:
+                parts.append("Reference something specific from past conversations on this topic.")
+            else:
+                if self._topic:
+                    parts.append("This is the learner's first time discussing this topic.")
+            style = random.choice(GREETING_STYLES)
+        else:
+            style = random.choice(REVIEW_GREETING_STYLES)
+        parts.append(style)
+        return " ".join(parts)
+
+    def _build_greeting_prompt(self) -> str:
+        """Build a hidden user message to guide the AI's opening greeting."""
+        parts = ["[SYSTEM: Generate your opening greeting now.]"]
+
+        # Time awareness
+        hour = datetime.now().hour
+        if 5 <= hour < 12:
+            parts.append("It's morning for the learner.")
+        elif 12 <= hour < 18:
+            parts.append("It's afternoon for the learner.")
+        else:
+            parts.append("It's evening for the learner.")
+
+        # Topic context
+        if self._topic:
+            parts.append(f"Today's topic: {self._topic}")
+
+        # History context
+        if self._conversation_summary_history:
+            parts.append("You've talked with this learner about this topic before. Reference something specific from your past conversations.")
+        elif self._topic:
+            parts.append("This is the first time discussing this topic with the learner.")
+
+        # Random style
+        if self._mode == SessionMode.CONVERSATION:
+            style = random.choice(GREETING_STYLES)
+        else:
+            style = random.choice(REVIEW_GREETING_STYLES)
+        parts.append(f"Greeting style: {style}")
+
+        return " ".join(parts)
 
     async def connect(self) -> None:
         """Open WebSocket and configure the session."""
@@ -141,7 +218,16 @@ class RealtimeSession:
         self._connected_event.set()
         self._listener_task = asyncio.create_task(self._listen_loop())
 
-        # Trigger AI greeting — events will flow into _event_queue
+        # Inject hidden greeting prompt and trigger AI greeting
+        greeting_prompt = self._build_greeting_prompt()
+        log.info("Greeting prompt: %s", greeting_prompt)
+        await self._conn.conversation.item.create(
+            item={
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": greeting_prompt}],
+            }
+        )
         await self._conn.response.create()
 
     async def wait_until_connected(self, timeout: float = 15.0) -> bool:

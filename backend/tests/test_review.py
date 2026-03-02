@@ -199,6 +199,44 @@ async def test_generate_correction_success(mock_chat):
 
 @pytest.mark.asyncio
 @patch("review.chat_json", new_callable=AsyncMock)
+async def test_generate_correction_includes_ai_marks_in_prompt_context(mock_chat):
+    """Correction prompt includes current segment's AI marks for grounding."""
+    mock_chat.return_value = {
+        "correction": "I think the weather is pretty nice today.",
+        "explanation": "這裡要補 be 動詞；也可以用 pretty nice 讓語氣更自然。",
+    }
+
+    await _insert_session_and_segments()
+
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT id FROM segments WHERE session_id = 's1' AND turn_index = 1"
+    )
+    seg_id = rows[0]["id"]
+    await db.execute(
+        "INSERT INTO ai_marks (segment_id, issue_types, original, suggestion, explanation) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (
+            seg_id,
+            json.dumps(["grammar", "naturalness"], ensure_ascii=False),
+            "The weather, I think good",
+            "I think the weather is pretty nice today.",
+            "缺少 be 動詞，且 good 可改為 pretty nice 更自然。",
+        ),
+    )
+    await db.commit()
+
+    await review.generate_correction("s1", seg_id, "請給我多一點範例")
+
+    mock_chat.assert_called_once()
+    _, prompt_user_msg = mock_chat.call_args.args
+    assert "AI marks:" in prompt_user_msg
+    assert "issue_types=['grammar', 'naturalness']" in prompt_user_msg
+    assert "I think the weather is pretty nice today." in prompt_user_msg
+
+
+@pytest.mark.asyncio
+@patch("review.chat_json", new_callable=AsyncMock)
 async def test_generate_correction_invalid_segment(mock_chat):
     """Non-existent segment raises ValueError."""
     await _insert_session_and_segments()
