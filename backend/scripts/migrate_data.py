@@ -41,7 +41,7 @@ TABLES = [
 # Columns per table (must match PostgreSQL schema)
 TABLE_COLUMNS = {
     "sessions": ["id", "user_id", "started_at", "ended_at", "status", "mode", "topic_id"],
-    "user_profiles": ["user_id", "level", "profile_data", "updated_at"],
+    "user_profiles": ["user_id", "level", "learning_goal", "profile_data", "updated_at"],
     "segments": ["id", "session_id", "turn_index", "user_text", "ai_text", "created_at"],
     "ai_marks": ["id", "segment_id", "issue_types", "original", "suggestion", "explanation"],
     "corrections": ["id", "session_id", "segment_id", "user_message", "correction", "explanation", "created_at"],

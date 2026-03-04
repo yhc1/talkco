@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import sessions
 from constants import SessionMode, SessionStatus
 from db import init_db, close_db, get_db
-from profile import get_or_create_profile, update_profile_after_session, evaluate_level, generate_progress_notes, generate_quick_review, compute_needs_review
+from profile import get_or_create_profile, update_profile_after_session, evaluate_level, generate_progress_notes, generate_quick_review, compute_needs_review, update_learning_goal
 from review import generate_correction, generate_session_review, generate_chat_summary
 from topics import get_topics, get_topic_by_id
 
@@ -46,6 +46,10 @@ class CreateSessionRequest(BaseModel):
 class CorrectionRequest(BaseModel):
     segment_id: int
     user_message: str
+
+
+class UpdateLearningGoalRequest(BaseModel):
+    learning_goal: str | None = None
 
 
 # -- Session endpoints --
@@ -348,6 +352,9 @@ async def _finalize_session(session_id: str, user_id: str) -> None:
                  session_id, t1 - t0,
                  "skipped" if results[0] is None else "done",
                  "done" if topic_id else "skipped")
+
+        # Update progress notes and quick review (must run after profile update)
+        await _update_profile_data_sequentially(user_id)
     except Exception as e:
         log.error("Failed to finalize session %s: %s", session_id, e)
     finally:
@@ -388,6 +395,13 @@ async def evaluate_user_level(user_id: str):
         _update_profile_data_sequentially(user_id),
     )
     profile = await get_or_create_profile(user_id)
+    profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
+    return profile
+
+
+@app.post("/users/{user_id}/learning-goal")
+async def update_user_learning_goal(user_id: str, req: UpdateLearningGoalRequest):
+    profile = await update_learning_goal(user_id, req.learning_goal)
     profile["needs_review"] = compute_needs_review(profile.get("profile_data", {}))
     return profile
 

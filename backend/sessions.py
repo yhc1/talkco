@@ -44,6 +44,9 @@ def _build_weak_points_for_review(profile: dict) -> str:
     return "\n".join(lines) if lines else ""
 
 
+def convert_dt_string(dt_str: str) -> str:
+    return datetime.fromisoformat(dt_str).strftime('%Y-%m-%d %H:%M:%S')
+
 async def create_session(user_id: str, topic: dict | None = None, mode: str = SessionMode.CONVERSATION) -> dict:
     session_id = str(uuid.uuid4())
     profile = await get_or_create_profile(user_id)
@@ -53,24 +56,33 @@ async def create_session(user_id: str, topic: dict | None = None, mode: str = Se
     if mode == SessionMode.CONVERSATION and topic_id:
         db = await get_db()
         rows = await db.execute_fetchall(
-            "SELECT cs.summary FROM chat_summaries cs "
+            "SELECT cs.topic_id, cs.summary, cs.created_at FROM chat_summaries cs "
             "JOIN sessions s ON cs.session_id = s.id "
             "WHERE s.user_id = ? AND cs.topic_id = ? "
             f"ORDER BY s.started_at DESC LIMIT {settings.CONVERSATION_HISTORY_LIMIT}",
             (user_id, topic_id),
         )
-        history_summaries = [r["summary"] for r in rows]
+        #
+        history_summaries = [
+            f"""
+            {convert_dt_string(r['created_at'])} - {r['topic_id']} - {r['summary']}
+            """
+            for r in rows
+        ] or None
 
     review_history: list[str] | None = None
     if mode == SessionMode.REVIEW:
         db = await get_db()
         rows = await db.execute_fetchall(
-            "SELECT rs.notes FROM review_summaries rs "
+            "SELECT rs.notes, rs.created_at FROM review_summaries rs "
             "JOIN sessions s ON rs.session_id = s.id "
             f"WHERE s.user_id = ? ORDER BY rs.created_at DESC LIMIT {settings.REVIEW_HISTORY_LIMIT}",
             (user_id,),
         )
-        review_history = [r["notes"] for r in rows] or None
+        review_history = [
+            f"{convert_dt_string(r['created_at'])} - {r['notes']}"
+            for r in rows
+        ] or None
 
     session = RealtimeSession(
         session_id, mode=mode, profile=profile, topic=topic.get("label_en") if topic else None,

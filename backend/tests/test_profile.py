@@ -114,6 +114,7 @@ async def _insert_session_with_marks(session_id="s1", user_id="u1"):
 async def test_get_or_create_profile_default():
     """Default profile has expected fields including progress_notes."""
     result = await profile.get_or_create_profile("new_user")
+    assert result["learning_goal"] is None
 
     data = result["profile_data"]
     assert set(data.keys()) == {"personal_facts", "weak_points", "common_errors", "progress_notes", "quick_review"}
@@ -122,6 +123,17 @@ async def test_get_or_create_profile_default():
     assert data["progress_notes"] == ""
     assert data["quick_review"] == []
     assert set(data["weak_points"].keys()) == {"grammar", "naturalness", "sentence_structure"}
+
+
+@pytest.mark.asyncio
+async def test_update_learning_goal_nullable():
+    await profile.get_or_create_profile("u_goal")
+
+    updated = await profile.update_learning_goal("u_goal", "三個月內把口說提升到 B2")
+    assert updated["learning_goal"] == "三個月內把口說提升到 B2"
+
+    cleared = await profile.update_learning_goal("u_goal", "   ")
+    assert cleared["learning_goal"] is None
 
 
 @pytest.mark.asyncio

@@ -59,6 +59,28 @@ struct ProfileView: View {
                 .disabled(vm.isEvaluating)
             }
 
+            Section("學習目標") {
+                TextField("例如：三個月內提升口說流暢度", text: $vm.learningGoalInput, axis: .vertical)
+                    .lineLimit(2...4)
+
+                Button {
+                    Task { await vm.saveLearningGoal() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if vm.isSavingLearningGoal {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("儲存中...")
+                        } else {
+                            Text("儲存學習目標")
+                        }
+                        Spacer()
+                    }
+                }
+                .disabled(vm.isSavingLearningGoal)
+            }
+
             // Progress notes
             if !profile.profileData.progressNotes.isEmpty {
                 Section {

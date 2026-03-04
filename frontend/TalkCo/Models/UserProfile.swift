@@ -3,6 +3,7 @@ import Foundation
 struct UserProfile: Codable {
     let userId: String
     let level: String?
+    let learningGoal: String?
     let profileData: ProfileData
     let updatedAt: String
     let needsReview: Bool?
@@ -10,6 +11,7 @@ struct UserProfile: Codable {
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case level
+        case learningGoal = "learning_goal"
         case profileData = "profile_data"
         case updatedAt = "updated_at"
         case needsReview = "needs_review"

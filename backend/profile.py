@@ -60,7 +60,7 @@ async def get_or_create_profile(user_id: str) -> dict:
     """Get existing profile or create a default one."""
     db = await get_db()
     rows = await db.execute_fetchall(
-        "SELECT user_id, level, profile_data, updated_at FROM user_profiles WHERE user_id = ?",
+        "SELECT user_id, level, learning_goal, profile_data, updated_at FROM user_profiles WHERE user_id = ?",
         (user_id,),
     )
     if rows:
@@ -68,6 +68,7 @@ async def get_or_create_profile(user_id: str) -> dict:
         return {
             "user_id": row["user_id"],
             "level": row["level"],
+            "learning_goal": row.get("learning_goal"),
             "profile_data": json.loads(row["profile_data"]),
             "updated_at": row["updated_at"],
         }
@@ -86,13 +87,14 @@ async def get_or_create_profile(user_id: str) -> dict:
         "quick_review": [],
     }
     await db.execute(
-        "INSERT INTO user_profiles (user_id, level, profile_data, updated_at) VALUES (?, ?, ?, ?)",
-        (user_id, None, json.dumps(default_data), now),
+        "INSERT INTO user_profiles (user_id, level, learning_goal, profile_data, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (user_id, None, None, json.dumps(default_data), now),
     )
     await db.commit()
     return {
         "user_id": user_id,
         "level": None,
+        "learning_goal": None,
         "profile_data": default_data,
         "updated_at": now,
     }
@@ -207,9 +209,13 @@ Input data (JSON):
 
     result = await chat_json(PROFILE_UPDATE_SYSTEM_PROMPT, user_message)
 
-    # Update DB — keep existing level, only update profile_data
+    # Merge GPT result into existing profile_data, preserving fields GPT doesn't return
     now = datetime.now(timezone.utc).isoformat()
-    new_data = json.dumps(result.get("profile_data", profile["profile_data"]), ensure_ascii=False)
+    updated_profile_data = result.get("profile_data", profile["profile_data"])
+    for key in ("progress_notes", "quick_review"):
+        if key not in updated_profile_data and key in profile["profile_data"]:
+            updated_profile_data[key] = profile["profile_data"][key]
+    new_data = json.dumps(updated_profile_data, ensure_ascii=False)
 
     await db.execute(
         "UPDATE user_profiles SET profile_data = ?, updated_at = ? WHERE user_id = ?",
@@ -220,7 +226,8 @@ Input data (JSON):
     return {
         "user_id": user_id,
         "level": profile["level"],
-        "profile_data": result.get("profile_data", profile["profile_data"]),
+        "learning_goal": profile.get("learning_goal"),
+        "profile_data": updated_profile_data,
         "updated_at": now,
     }
 
@@ -311,6 +318,7 @@ Current profile: {profile_json}
     return {
         "user_id": user_id,
         "level": new_level,
+        "learning_goal": profile.get("learning_goal"),
         "profile_data": profile["profile_data"],
         "updated_at": now,
     }
@@ -431,6 +439,7 @@ Current level: {level}
     return {
         "user_id": user_id,
         "level": profile["level"],
+        "learning_goal": profile.get("learning_goal"),
         "profile_data": profile["profile_data"],
         "updated_at": now,
     }
@@ -589,9 +598,26 @@ Still-struggling patterns from review sessions:
     return {
         "user_id": user_id,
         "level": profile["level"],
+        "learning_goal": profile.get("learning_goal"),
         "profile_data": current_data,
         "updated_at": now,
     }
+
+
+async def update_learning_goal(user_id: str, learning_goal: str | None) -> dict:
+    """Update user's learning goal. Empty values are stored as NULL."""
+    db = await get_db()
+    await get_or_create_profile(user_id)
+
+    normalized = learning_goal.strip() if learning_goal else None
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        "UPDATE user_profiles SET learning_goal = ?, updated_at = ? WHERE user_id = ?",
+        (normalized or None, now, user_id),
+    )
+    await db.commit()
+
+    return await get_or_create_profile(user_id)
 
 
 def compute_needs_review(profile_data: dict) -> bool:

@@ -50,6 +50,7 @@ SCHEMA_STATEMENTS = [
     CREATE TABLE IF NOT EXISTS user_profiles (
         user_id      TEXT PRIMARY KEY,
         level        TEXT,
+        learning_goal TEXT,
         profile_data TEXT NOT NULL DEFAULT '{}',
         updated_at   TEXT NOT NULL
     )""",
@@ -128,6 +129,9 @@ async def init_db() -> None:
     async with _pool.acquire() as conn:
         for stmt in SCHEMA_STATEMENTS:
             await conn.execute(stmt)
+        await conn.execute(
+            "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS learning_goal TEXT"
+        )
 
 
 async def get_db() -> Database:
