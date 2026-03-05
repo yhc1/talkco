@@ -1,0 +1,6 @@
+{
+  "use_cloud_backend": true,
+  "cloud_backend_url": "https://talkco-backend-nqgrraky6q-de.a.run.app",
+  "local_backend_url": "http://localhost:8000",
+  "device_backend_url": "http://192.168.1.100:8000"
+}

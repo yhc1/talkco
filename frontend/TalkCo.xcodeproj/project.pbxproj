@@ -12,6 +12,7 @@
 		3467FACC7EE854A0945F36B6 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1FF32C37F50E9C8C5B77291 /* AudioPlayer.swift */; };
 		493D63B19FC613FB17016E33 /* TalkCoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6437881A5902DD780EE010 /* TalkCoApp.swift */; };
 		5072F3E6931BA379253BD187 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CEB2EF5854B829AAC7DEC6D /* Config.swift */; };
+		58E2911C2F59ADF200582605 /* app_config.json in Resources */ = {isa = PBXBuildFile; fileRef = 58E2911B2F59ADF200582605 /* app_config.json */; };
 		5929752194F8F619DBFD0261 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C15FB46C2B9FAB0CDB3E6A /* ChatMessage.swift */; };
 		67F3063512293CACB7C8A088 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180A160A0C71011FE46EF91C /* Session.swift */; };
 		95768F7F37AB811B2B846CAD /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B627A99DA199B7DA6093CF0 /* APIClient.swift */; };
@@ -29,8 +30,11 @@
 		C40001AA00000002CC000002 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000002CC000002 /* ProfileView.swift */; };
 		C40001AA00000003CC000003 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000003CC000003 /* ProfileViewModel.swift */; };
 		C40001AA00000004CC000004 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40001BB00000004CC000004 /* UserProfile.swift */; };
+		D10001AA00000001DD000001 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10001BB00000001DD000001 /* Constants.swift */; };
 		E3F34C0EB6F422EA131A16A8 /* Topic.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C2C864FF3EAB8148835A16 /* Topic.swift */; };
 		F378D1B9331DF10D2812A475 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */; };
+		S20001FF00000001SSSS0001 /* topics.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000001SSSS0001 /* topics.json */; };
+		S20001FF00000002SSSS0002 /* constants.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000002SSSS0002 /* constants.json */; };
 		T2000001000000000000AA01 /* SegmentCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000001000000000000BB01 /* SegmentCodableTests.swift */; };
 		T2000002000000000000AA02 /* SessionResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000002000000000000BB02 /* SessionResponseTests.swift */; };
 		T2000003000000000000AA03 /* SessionSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1000003000000000000BB03 /* SessionSummaryTests.swift */; };
@@ -45,9 +49,6 @@
 		T200000C000000000000AA0C /* MockAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000C000000000000BB0C /* MockAudioPlayer.swift */; };
 		T200000D000000000000AA0D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000D000000000000BB0D /* TestFixtures.swift */; };
 		T200000E000000000000AA0E /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T100000E000000000000BB0E /* ConfigTests.swift */; };
-		S20001FF00000001SSSS0001 /* topics.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000001SSSS0001 /* topics.json */; };
-		S20001FF00000002SSSS0002 /* constants.json in Resources */ = {isa = PBXBuildFile; fileRef = S10001FF00000002SSSS0002 /* constants.json */; };
-		D10001AA00000001DD000001 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10001BB00000001DD000001 /* Constants.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		3F6437881A5902DD780EE010 /* TalkCoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkCoApp.swift; sourceTree = "<group>"; };
 		4CEB2EF5854B829AAC7DEC6D /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		575F8F343FBA44C75676BAF0 /* TalkCo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TalkCo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		58E2911B2F59ADF200582605 /* app_config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = app_config.json; path = TalkCo/app_config.json; sourceTree = "<group>"; };
 		63C9AEE5DFC77321E2A32D2B /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		64DB0E28BF2A7EE14F0D3C03 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		6B627A99DA199B7DA6093CF0 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -86,6 +88,9 @@
 		C40001BB00000002CC000002 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		C40001BB00000003CC000003 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		C40001BB00000004CC000004 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		D10001BB00000001DD000001 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		S10001FF00000001SSSS0001 /* topics.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = topics.json; path = ../shared/topics.json; sourceTree = "<group>"; };
+		S10001FF00000002SSSS0002 /* constants.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = constants.json; path = ../shared/constants.json; sourceTree = "<group>"; };
 		T1000001000000000000BB01 /* SegmentCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentCodableTests.swift; sourceTree = "<group>"; };
 		T1000002000000000000BB02 /* SessionResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionResponseTests.swift; sourceTree = "<group>"; };
 		T1000003000000000000BB03 /* SessionSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSummaryTests.swift; sourceTree = "<group>"; };
@@ -101,9 +106,6 @@
 		T100000D000000000000BB0D /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		T100000E000000000000BB0E /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 		T4000003000000000000CC03 /* TalkCoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalkCoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		S10001FF00000001SSSS0001 /* topics.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = topics.json; path = ../shared/topics.json; sourceTree = "<group>"; };
-		S10001FF00000002SSSS0002 /* constants.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = constants.json; path = ../shared/constants.json; sourceTree = "<group>"; };
-		D10001BB00000001DD000001 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -167,6 +169,7 @@
 		D12547078681E3B89E6BA518 = {
 			isa = PBXGroup;
 			children = (
+				58E2911B2F59ADF200582605 /* app_config.json */,
 				43589D0AA43AD60B6D8508C0 /* TalkCo */,
 				T3000001000000000000DD01 /* TalkCoTests */,
 				36032F7FA5ECEB3F04FD5898 /* Products */,
@@ -324,6 +327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				S20001FF00000002SSSS0002 /* constants.json in Resources */,
+				58E2911C2F59ADF200582605 /* app_config.json in Resources */,
 				S20001FF00000001SSSS0001 /* topics.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
