@@ -61,7 +61,7 @@ async def list_topics():
 
 @app.post("/sessions")
 async def create_session(req: CreateSessionRequest):
-    if req.mode not in SessionMode:
+    if req.mode not in SessionMode._value2member_map_:
         raise HTTPException(status_code=400, detail=f"Invalid mode: {req.mode}")
 
     topic = None
