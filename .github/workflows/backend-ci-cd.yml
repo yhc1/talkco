@@ -16,6 +16,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_REGION: ${{ vars.GCP_REGION }}
   GAR_LOCATION: ${{ vars.GAR_LOCATION }}
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
@@ -53,15 +54,8 @@ jobs:
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
-          pip install \
-            pytest \
-            pytest-asyncio \
-            fastapi \
-            uvicorn \
-            python-multipart \
-            pydantic-settings \
-            asyncpg \
-            openai
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
 
       - name: Run backend tests
         working-directory: backend
@@ -97,19 +91,17 @@ jobs:
       - name: Configure Docker auth for Artifact Registry
         run: gcloud auth configure-docker "${{ env.GAR_LOCATION }}-docker.pkg.dev" --quiet
 
-      - name: Build and push image
-        env:
-          IMAGE_URI: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        run: |
-          docker build -f backend/Dockerfile -t "${IMAGE_URI}" .
-          docker push "${IMAGE_URI}"
-          echo "IMAGE_URI=${IMAGE_URI}" >> "${GITHUB_ENV}"
+      - name: Make deploy script executable
+        run: chmod +x backend/scripts/deploy_cloud_run.sh
 
-      - name: Deploy to Cloud Run
+      - name: Build, push, and deploy Cloud Run
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          GAR_LOCATION: ${{ env.GAR_LOCATION }}
+          GAR_REPOSITORY: ${{ env.GAR_REPOSITORY }}
+          CLOUD_RUN_SERVICE: ${{ env.CLOUD_RUN_SERVICE }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          gcloud run deploy "${{ env.CLOUD_RUN_SERVICE }}" \
-            --image "${{ env.IMAGE_URI }}" \
-            --region "${{ env.GCP_REGION }}" \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-secrets OPENAI_API_KEY=OPENAI_API_KEY:latest,DATABASE_URL=DATABASE_URL:latest,SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest
+          ./backend/scripts/deploy_cloud_run.sh

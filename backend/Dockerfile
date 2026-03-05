@@ -6,18 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Runtime dependencies for FastAPI + asyncpg backend.
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    python-multipart \
-    pydantic-settings \
-    asyncpg \
-    openai
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ /app/
 COPY shared/ /shared/
 
 EXPOSE 8000
 
-CMD ["python", "main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
