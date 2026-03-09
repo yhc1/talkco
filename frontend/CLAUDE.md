@@ -14,7 +14,8 @@ For backend API details, refer to @../backend/CLAUDE.md.
 - **URLSession** for networking (JSON, SSE streaming, multipart upload)
 - **AVAudioEngine** for recording (PCM16, 24kHz, mono)
 - **AVAudioPlayerNode** for streaming audio playback
-- **User ID**: auto-generated UUID stored in UserDefaults (no auth in v1)
+- **User ID**: auto-generated 9-digit numeric string stored in UserDefaults (no auth in v1)
+- **User Name**: set in `app_config.json`, sent to backend on session create to populate `user_name` in profile
 
 ---
 
@@ -88,13 +89,13 @@ Always use these enums for mode/status/dimension comparisons. Raw strings are ac
 
 **Conversation mode** (`mode="conversation"`):
 - User picks a topic → ConversationView → end → ReviewView → SessionSummaryView → home
-- `CreateSessionBody` sends `topicId` + `mode="conversation"`
+- `CreateSessionBody` sends `userId` + `userName` + `topicId` + `mode="conversation"`
 - Backend injects same-topic chat history into AI context
 - `endConversation()` returns sessionId for review navigation
 
 **Review mode** (`mode="review"`):
 - User taps "弱點複習" card → ConversationView → end → home (no review flow)
-- `CreateSessionBody` sends `topicId=nil` + `mode="review"`
+- `CreateSessionBody` sends `userId` + `userName` + `topicId=nil` + `mode="review"`
 - AI acts as teacher, drilling weak points with exercises
 - `endConversation()` returns nil (skip review), `popToRoot()` is called
 
@@ -102,10 +103,18 @@ Always use these enums for mode/status/dimension comparisons. Raw strings are ac
 
 ## Profile Page
 
-- **CEFR level** display with re-evaluation button
-- **學習總覽** — `progressNotes` from profile (learning progress summary)
-- **需要加強** — 3-dimension weak points with `DisclosureGroup`:
-  - Each `WeakPointPattern` has a `pattern` (繁中 description) and `examples` (wrong/correct pairs)
-  - Expand to see strikethrough wrong + green correct examples
-  - Old-format weak points (plain strings) are silently ignored
+- **CEFR level** display with "更新學習報告" button (`POST /evaluate`)
+- **學習目標** — editable text field, saved via `POST /users/{id}/learning-goal`
+- **學習總覽** — `progressNotes` from profile (shown only if non-empty)
+- **快速複習** — `quickReview` list of `{ chinese, english }` pairs (shown only if non-empty)
 - **Needs-review banner** on TopicSelectionView when `needs_review=true` (3+ examples on any pattern)
+
+## Environment Config
+
+`TalkCo/app_config.json` controls runtime settings (not compiled into code):
+- `use_cloud_backend` — toggle between cloud and local backend
+- `cloud_backend_url` — GCP Cloud Run URL
+- `local_backend_url` / `device_backend_url` — local dev URLs
+- `user_name` — display name sent to backend on session create
+
+`Config.swift` reads `app_config.json` via `Bundle.main` at startup.

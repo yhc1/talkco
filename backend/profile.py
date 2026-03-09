@@ -56,17 +56,18 @@ Return ONLY valid JSON with this exact shape:
 )
 
 
-async def get_or_create_profile(user_id: str) -> dict:
+async def get_or_create_profile(user_id: str, user_name: str | None = None) -> dict:
     """Get existing profile or create a default one."""
     db = await get_db()
     rows = await db.execute_fetchall(
-        "SELECT user_id, level, learning_goal, profile_data, updated_at FROM user_profiles WHERE user_id = ?",
+        "SELECT user_id, user_name, level, learning_goal, profile_data, updated_at FROM user_profiles WHERE user_id = ?",
         (user_id,),
     )
     if rows:
         row = rows[0]
         return {
             "user_id": row["user_id"],
+            "user_name": row.get("user_name"),
             "level": row["level"],
             "learning_goal": row.get("learning_goal"),
             "profile_data": json.loads(row["profile_data"]),
@@ -87,12 +88,13 @@ async def get_or_create_profile(user_id: str) -> dict:
         "quick_review": [],
     }
     await db.execute(
-        "INSERT INTO user_profiles (user_id, level, learning_goal, profile_data, updated_at) VALUES (?, ?, ?, ?, ?)",
-        (user_id, None, None, json.dumps(default_data), now),
+        "INSERT INTO user_profiles (user_id, user_name, level, learning_goal, profile_data, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, user_name, None, None, json.dumps(default_data), now),
     )
     await db.commit()
     return {
         "user_id": user_id,
+        "user_name": user_name,
         "level": None,
         "learning_goal": None,
         "profile_data": default_data,

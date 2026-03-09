@@ -49,6 +49,7 @@ SCHEMA_STATEMENTS = [
     """\
     CREATE TABLE IF NOT EXISTS user_profiles (
         user_id      TEXT PRIMARY KEY,
+        user_name    TEXT,
         level        TEXT,
         learning_goal TEXT,
         profile_data TEXT NOT NULL DEFAULT '{}',
@@ -131,6 +132,9 @@ async def init_db() -> None:
             await conn.execute(stmt)
         await conn.execute(
             "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS learning_goal TEXT"
+        )
+        await conn.execute(
+            "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS user_name TEXT"
         )
 
 

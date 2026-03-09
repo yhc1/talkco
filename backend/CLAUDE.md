@@ -28,11 +28,12 @@ Python Backend (FastAPI)
 - `providers/openai_s2s.py` — OpenAI Realtime S2S via `openai` SDK
   - Handles transcript, response text, and audio output in one hop
   - Uses `gpt-4o-mini-transcribe` for input audio transcription
-  - Dynamic system prompt built from topic + learner profile context + same-topic chat history
+  - Dynamic system prompt built from topic + learner profile context (level, personal_facts, learning_goal) + same-topic chat history with timestamps
+  - Conversation prompt includes recast-style error correction instructions (selective, gentle)
   - Two modes: `conversation` (normal topic chat) and `review` (weak point practice)
   - Review mode uses a dedicated system prompt focused on targeted exercises with immediate feedback
   - Triggers AI greeting on connect; `stream_greeting()` streams it without persisting as segment
-  - Persists segments to SQLite after each turn (only when both transcript and response are non-empty)
+  - Persists segments to PostgreSQL after each turn (only when both transcript and response are non-empty)
   - Drains stale events from the queue before sending new audio to avoid race conditions
   - Audio silence detection: frontend checks RMS energy before sending; empty transcripts are discarded
 - `providers/openai_chat.py` — OpenAI Chat Completions wrapper
@@ -47,16 +48,16 @@ Python Backend (FastAPI)
 
 ### Storage
 
-- `db.py` — SQLite via aiosqlite (raw SQL, no ORM)
-- Database file: `talkco.db` (configurable via `DB_PATH`)
-- Tables: `sessions`, `segments`, `ai_marks`, `corrections`, `user_profiles`, `session_summaries`, `chat_summaries`
-- Migrations: `init_db()` runs `ALTER TABLE` for columns added after initial schema (e.g. `sessions.mode`, `sessions.topic_id`)
+- `db.py` — PostgreSQL via asyncpg (raw SQL, no ORM), connection pool
+- Database: Supabase PostgreSQL (configured via `DATABASE_URL`)
+- Tables: `sessions`, `segments`, `ai_marks`, `corrections`, `user_profiles`, `session_summaries`, `chat_summaries`, `review_summaries`
+- Migrations: `init_db()` runs `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for columns added after initial schema
 
 ### Sessions
 
 - `sessions.py` — Session lifecycle management
-  - `create_session(user_id, topic, mode)` — Creates session, fetches learner profile, builds system prompt
-    - `mode="conversation"`: requires topic; queries same-topic chat history to inject into system prompt
+  - `create_session(user_id, topic, mode, user_name)` — Creates session, fetches learner profile, builds system prompt
+    - `mode="conversation"`: requires topic; queries same-topic chat history (with timestamps) to inject into system prompt
     - `mode="review"`: no topic needed; builds weak points detail from profile for targeted practice
   - `delete_session(session_id)` — Closes WebSocket, launches background review (conversation mode) or ends immediately (review mode)
   - In-memory dicts track active sessions, user IDs, and modes
@@ -69,10 +70,15 @@ Python Backend (FastAPI)
   - `generate_session_review(session_id) → dict` — Final structured review when user presses End. Stores result in `session_summaries` table.
   - `generate_chat_summary(session_id) → dict` — Generates a content summary of the conversation (topic discussed, key points covered). Stored in `chat_summaries` table. Used to provide context when starting future conversations on the same topic.
 - `profile.py` — User Learning Profile CRUD and post-session update
-  - `get_or_create_profile(user_id) → dict` — Returns existing or creates default profile (default level: B1)
-  - `update_profile_after_session(user_id, session_id) → dict` — Gathers session data (segments, marks, corrections, summary) plus last 5 completed session summaries for trend context, and calls GPT-4o to update profile. Uses CEFR scale (A1–C2) for level assessment.
+  - `get_or_create_profile(user_id, user_name?) → dict` — Returns existing or creates default profile
+  - `update_profile_after_session(user_id, session_id) → dict` — Updates `weak_points`, `personal_facts`, `common_errors`. Preserves existing `progress_notes` and `quick_review` (GPT doesn't return these fields).
+  - `generate_progress_notes(user_id) → dict` — Generates 繁中 learning progress summary from recent session/review summaries. Updates `profile_data.progress_notes`.
+  - `generate_quick_review(user_id) → dict` — Generates quick-review sentence list from recent corrections + AI marks. Updates `profile_data.quick_review`.
+  - `evaluate_level(user_id) → dict` — Re-evaluates CEFR level from recent session summaries.
+  - `update_learning_goal(user_id, learning_goal?) → dict` — Updates `learning_goal` column (NULL if empty).
   - `compute_needs_review(profile_data) → bool` — Returns true if any weak point pattern has 3+ examples (repeated errors)
   - Profile `weak_points` uses structured format: `{ dimension: [{ pattern: "繁中描述", examples: [{ wrong, correct }] }] }`
+  - After `_finalize_session`, `generate_progress_notes` + `generate_quick_review` run sequentially (to avoid overwrite race)
 
 ### Tests
 
@@ -97,7 +103,7 @@ Python Backend (FastAPI)
 - Fetches user's Learning Profile to build learner context for the AI
 - Persists to DB and initializes WebSocket connection in background
 - After WebSocket connects, AI greeting is triggered automatically
-- Request: `{ user_id: string, topic_id: string | null, mode: "conversation" | "review" }`
+- Request: `{ user_id: string, user_name?: string, topic_id: string | null, mode: "conversation" | "review" }`
 - Response: `{ session_id: string, created_at: timestamp }`
 
 **POST /sessions/{id}/start**
@@ -153,11 +159,16 @@ Python Backend (FastAPI)
 - Returns current User Learning Profile
 - Creates default profile if none exists
 - Includes `needs_review: bool` indicating if repeated errors detected
-- Response: `{ user_id, level, profile_data, updated_at, needs_review }`
+- Response: `{ user_id, user_name, level, learning_goal, profile_data, updated_at, needs_review }`
 
 **POST /users/{user_id}/evaluate**
-- Re-evaluates user's CEFR level based on recent session history
-- Response: `{ user_id, level, profile_data, updated_at, needs_review }`
+- Re-evaluates CEFR level + regenerates `progress_notes` and `quick_review` in parallel
+- Response: `{ user_id, user_name, level, learning_goal, profile_data, updated_at, needs_review }`
+
+**POST /users/{user_id}/learning-goal**
+- Updates user's learning goal (empty string → NULL)
+- Request: `{ learning_goal: string | null }`
+- Response: same as GET /profile
 
 ---
 
@@ -193,10 +204,16 @@ All Chinese-language output (explanations, review, assessment) is in Traditional
 
 Settings in `config.py` (Pydantic BaseSettings, read from `.env`):
 - `OPENAI_API_KEY` — required
+- `DATABASE_URL` — required (PostgreSQL connection string)
 - `S2S_MODEL` — default `gpt-4o-realtime-preview`
 - `S2S_VOICE` — default `alloy`
 - `CHAT_MODEL` — default `gpt-4o` (used for review/profile)
-- `DB_PATH` — default `talkco.db`
+- `CONVERSATION_HISTORY_LIMIT` — default 5
+- `REVIEW_HISTORY_LIMIT` — default 5
+- `LEVEL_EVAL_SESSION_LIMIT` — default 10
+- `PROGRESS_NOTES_SESSION_LIMIT` — default 5
+- `QUICK_REVIEW_LIMIT` — default 5
+- `MAX_EXAMPLES_PER_PATTERN` — default 5
 
 ---
 
@@ -204,4 +221,5 @@ Settings in `config.py` (Pydantic BaseSettings, read from `.env`):
 
 - **SSE streaming**: Each POST to `/chat` returns an SSE stream. Events are yielded incrementally as they arrive from OpenAI.
 - **No TTS in backend logic**: Audio output comes directly from OpenAI Realtime API, not from a separate TTS provider.
-- **Single SQLite connection**: Shared across the app via `db.get_db()`. Acceptable for single-server deployment.
+- **PostgreSQL connection pool**: Managed via asyncpg pool, initialized at startup via `init_db()`.
+- **Deployment**: GCP Cloud Run (`asia-east1`), CI/CD via GitHub Actions on push to `main`. Secrets stored in GCP Secret Manager.

@@ -47,9 +47,9 @@ def _build_weak_points_for_review(profile: dict) -> str:
 def convert_dt_string(dt_str: str) -> str:
     return datetime.fromisoformat(dt_str).strftime('%Y-%m-%d %H:%M:%S')
 
-async def create_session(user_id: str, topic: dict | None = None, mode: str = SessionMode.CONVERSATION) -> dict:
+async def create_session(user_id: str, topic: dict | None = None, mode: str = SessionMode.CONVERSATION, user_name: str | None = None) -> dict:
     session_id = str(uuid.uuid4())
-    profile = await get_or_create_profile(user_id)
+    profile = await get_or_create_profile(user_id, user_name=user_name)
     topic_id = topic.get("id") if topic else None
     history_summaries: list[str] = []
     # Query same-topic chat history for conversation mode

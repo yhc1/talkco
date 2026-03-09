@@ -5,12 +5,14 @@ private struct AppConfig: Decodable {
     let cloudBackendUrl: String
     let localBackendUrl: String
     let deviceBackendUrl: String
+    let userName: String?
 
     enum CodingKeys: String, CodingKey {
         case useCloudBackend = "use_cloud_backend"
         case cloudBackendUrl = "cloud_backend_url"
         case localBackendUrl = "local_backend_url"
         case deviceBackendUrl = "device_backend_url"
+        case userName = "user_name"
     }
 }
 
@@ -35,12 +37,17 @@ enum Config {
         #endif
     }()
 
+    /// User name from app_config.json (e.g. "wayne"). Nil if not set.
+    static var userName: String? { appConfig.userName }
+
+    /// Numeric user ID (9 digits), generated once and persisted in UserDefaults.
     static var userID: String {
         let key = "talkco_user_id"
-        if let existing = UserDefaults.standard.string(forKey: key) {
+        if let existing = UserDefaults.standard.string(forKey: key),
+           existing.allSatisfy(\.isNumber) {
             return existing
         }
-        let id = UUID().uuidString
+        let id = String(Int.random(in: 100_000_000...999_999_999))
         UserDefaults.standard.set(id, forKey: key)
         return id
     }

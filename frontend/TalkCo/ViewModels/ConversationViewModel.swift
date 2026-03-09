@@ -39,7 +39,7 @@ final class ConversationViewModel {
         }
 
         do {
-            let body = CreateSessionBody(userId: Config.userID, topicId: topic?.id, mode: mode)
+            let body = CreateSessionBody(userId: Config.userID, userName: Config.userName, topicId: topic?.id, mode: mode)
             let resp: CreateSessionResponse = try await api.post("/sessions", body: body)
             sessionId = resp.sessionId
             log.info("Session created: \(resp.sessionId) mode=\(self.mode.rawValue)")
@@ -264,11 +264,13 @@ final class ConversationViewModel {
 
 private struct CreateSessionBody: Encodable, Sendable {
     let userId: String
+    let userName: String?
     let topicId: String?
     let mode: SessionMode
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
+        case userName = "user_name"
         case topicId = "topic_id"
         case mode
     }

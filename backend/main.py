@@ -39,6 +39,7 @@ app = FastAPI(title="TalkCo Backend", lifespan=lifespan)
 
 class CreateSessionRequest(BaseModel):
     user_id: str
+    user_name: str | None = None
     topic_id: str | None = None
     mode: str = SessionMode.CONVERSATION
 
@@ -72,7 +73,7 @@ async def create_session(req: CreateSessionRequest):
         if topic is None:
             raise HTTPException(status_code=400, detail=f"Unknown topic_id: {req.topic_id}")
 
-    result = await sessions.create_session(req.user_id, topic=topic, mode=req.mode)
+    result = await sessions.create_session(req.user_id, topic=topic, mode=req.mode, user_name=req.user_name)
     return result
 
 
